@@ -59,13 +59,14 @@ app.use(helmet({
 // Strict CORS: Restrict API access to trusted frontend origins only
 const allowedOrigins = [
   CLIENT_URL,
+  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
   'http://localhost:5173',
   'http://127.0.0.1:5173'
-];
+].filter(Boolean);
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || (typeof origin === 'string' && origin.endsWith('.vercel.app'))) {
       return callback(null, true);
     }
     return callback(new Error('Blocked by CORS policy: Origin not allowed'));
@@ -1006,8 +1007,12 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'An unexpected internal error occurred. Please try again later.' });
 });
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`\x1b[32m✔ Nexus Intelligence Server running on http://localhost:${PORT}\x1b[0m`);
-  console.log(`\x1b[36m✔ Security: Helmet, CORS, Rate Limiting, RBAC & SSRF Protections Active\x1b[0m`);
-});
+// Start Server if run directly (local development)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`\x1b[32m✔ Nexus Intelligence Server running on http://localhost:${PORT}\x1b[0m`);
+    console.log(`\x1b[36m✔ Security: Helmet, CORS, Rate Limiting, RBAC & SSRF Protections Active\x1b[0m`);
+  });
+}
+
+export default app;
