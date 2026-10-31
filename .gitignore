@@ -1,0 +1,43 @@
+# Environment & Secrets (NEVER COMMIT)
+.env
+.env.*
+*.env
+server/.env
+server/.env.*
+
+# Local User Database & Sensitive Data
+server/data/*.json
+!server/data/.gitkeep
+data/*.json
+
+# Node dependencies
+node_modules/
+server/node_modules/
+client/node_modules/
+
+# Production Builds
+dist/
+client/dist/
+dist-ssr/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# System & OS Files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
