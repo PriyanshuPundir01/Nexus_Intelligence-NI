@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { 
   X, 
@@ -8,19 +8,54 @@ import {
   UploadCloud, 
   RefreshCw, 
   CheckCircle2, 
-  AlertCircle
+  AlertCircle,
+  FileCode,
+  Video,
+  Globe,
+  Sparkles
 } from 'lucide-react';
 
-
 export default function SourceModal({ isOpen, onClose, onSourceAdded, token, guestSessionId }) {
-  const [activeTab, setActiveTab] = useState('pdf'); // 'pdf' | 'image' | 'link'
+  const [activeTab, setActiveTab] = useState('pdf'); // 'pdf' | 'image' | 'link' | 'text'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [linkInput, setLinkInput] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
+  // Raw text / code note state
+  const [textTitle, setTextTitle] = useState('');
+  const [textContent, setTextContent] = useState('');
+  const [textType, setTextType] = useState('text'); // 'text' | 'code'
+
   const fileInputRef = useRef(null);
+
+  // Support pasting image directly from clipboard (Ctrl+V) anywhere while modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePaste = (e) => {
+      if (e.clipboardData && e.clipboardData.items) {
+        for (const item of e.clipboardData.items) {
+          if (item.type.indexOf('image') !== -1) {
+            const file = item.getAsFile();
+            if (file) {
+              setActiveTab('image');
+              setSelectedFile(file);
+              setError('');
+              const reader = new FileReader();
+              reader.onload = (event) => setImagePreview(event.target.result);
+              reader.readAsDataURL(file);
+              break;
+            }
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -113,9 +148,14 @@ export default function SourceModal({ isOpen, onClose, onSourceAdded, token, gue
 
   const handleIngestLink = async (e) => {
     e.preventDefault();
-    if (!linkInput.trim()) {
-      setError('Please enter a web or YouTube link.');
+    let url = linkInput.trim();
+    if (!url) {
+      setError('Please enter a web page or YouTube link.');
       return;
+    }
+
+    if (!/^https?:\/\//i.test(url)) {
+      url = 'https://' + url;
     }
 
     setLoading(true);
@@ -127,7 +167,7 @@ export default function SourceModal({ isOpen, onClose, onSourceAdded, token, gue
       const res = await fetch('/api/ingest-link', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ url: linkInput.trim() })
+        body: JSON.stringify({ url })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to ingest link');
@@ -142,10 +182,44 @@ export default function SourceModal({ isOpen, onClose, onSourceAdded, token, gue
     }
   };
 
+  const handleIngestText = async (e) => {
+    e.preventDefault();
+    if (!textContent.trim()) {
+      setError('Please paste text or code content to index.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const headers = getSessionHeaders({ 'Content-Type': 'application/json' });
+
+      const res = await fetch('/api/ingest-text', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          title: textTitle.trim() || (textType === 'code' ? 'Code Snippet' : 'Note'),
+          text: textContent.trim(),
+          type: textType
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to index text');
+
+      try { confetti({ particleCount: 50, spread: 50 }); } catch (_) {}
+      onSourceAdded(data.source);
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card" style={{ maxWidth: '580px' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>Add Knowledge Source</h3>
           <button className="btn-ghost" style={{ padding: '0.4rem' }} onClick={onClose}>
@@ -154,19 +228,21 @@ export default function SourceModal({ isOpen, onClose, onSourceAdded, token, gue
         </div>
 
         {/* Source Type Tabs */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem', marginBottom: '1.25rem' }}>
           <button 
             type="button"
             className={`btn-ghost ${activeTab === 'pdf' ? 'primary' : ''}`}
             style={{ 
               justifyContent: 'center', 
+              fontSize: '0.8rem',
+              padding: '0.5rem 0.3rem',
               background: activeTab === 'pdf' ? 'var(--accent-primary)' : 'var(--bg-app)',
               color: activeTab === 'pdf' ? '#fff' : 'var(--text-secondary)',
               borderColor: activeTab === 'pdf' ? 'var(--accent-primary)' : 'var(--border-subtle)'
             }}
             onClick={() => { setActiveTab('pdf'); setSelectedFile(null); setImagePreview(null); setError(''); }}
           >
-            <FileText size={16} /> PDF Document
+            <FileText size={14} /> PDF
           </button>
 
           <button 
@@ -174,13 +250,15 @@ export default function SourceModal({ isOpen, onClose, onSourceAdded, token, gue
             className={`btn-ghost ${activeTab === 'image' ? 'primary' : ''}`}
             style={{ 
               justifyContent: 'center', 
+              fontSize: '0.8rem',
+              padding: '0.5rem 0.3rem',
               background: activeTab === 'image' ? 'var(--accent-primary)' : 'var(--bg-app)',
               color: activeTab === 'image' ? '#fff' : 'var(--text-secondary)',
               borderColor: activeTab === 'image' ? 'var(--accent-primary)' : 'var(--border-subtle)'
             }}
             onClick={() => { setActiveTab('image'); setSelectedFile(null); setImagePreview(null); setError(''); }}
           >
-            <ImageIcon size={16} /> Image / Diagram
+            <ImageIcon size={14} /> Image
           </button>
 
           <button 
@@ -188,13 +266,31 @@ export default function SourceModal({ isOpen, onClose, onSourceAdded, token, gue
             className={`btn-ghost ${activeTab === 'link' ? 'primary' : ''}`}
             style={{ 
               justifyContent: 'center', 
+              fontSize: '0.8rem',
+              padding: '0.5rem 0.3rem',
               background: activeTab === 'link' ? 'var(--accent-primary)' : 'var(--bg-app)',
               color: activeTab === 'link' ? '#fff' : 'var(--text-secondary)',
               borderColor: activeTab === 'link' ? 'var(--accent-primary)' : 'var(--border-subtle)'
             }}
             onClick={() => { setActiveTab('link'); setSelectedFile(null); setImagePreview(null); setError(''); }}
           >
-            <LinkIcon size={16} /> Web / YouTube
+            <LinkIcon size={14} /> Link / YT
+          </button>
+
+          <button 
+            type="button"
+            className={`btn-ghost ${activeTab === 'text' ? 'primary' : ''}`}
+            style={{ 
+              justifyContent: 'center', 
+              fontSize: '0.8rem',
+              padding: '0.5rem 0.3rem',
+              background: activeTab === 'text' ? 'var(--accent-primary)' : 'var(--bg-app)',
+              color: activeTab === 'text' ? '#fff' : 'var(--text-secondary)',
+              borderColor: activeTab === 'text' ? 'var(--accent-primary)' : 'var(--border-subtle)'
+            }}
+            onClick={() => { setActiveTab('text'); setSelectedFile(null); setImagePreview(null); setError(''); }}
+          >
+            <FileCode size={14} /> Notes / Code
           </button>
         </div>
 
@@ -211,17 +307,17 @@ export default function SourceModal({ isOpen, onClose, onSourceAdded, token, gue
               className="dropzone"
               onClick={() => fileInputRef.current?.click()}
             >
-              <UploadCloud size={40} style={{ color: 'var(--accent-primary)', margin: '0 auto 0.75rem auto' }} />
-              <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.3rem' }}>
-                {selectedFile ? selectedFile.name : 'Click to select or drop PDF file'}
+              <UploadCloud size={38} style={{ color: 'var(--accent-primary)', margin: '0 auto 0.75rem auto' }} />
+              <div style={{ fontWeight: 600, fontSize: '0.92rem', marginBottom: '0.3rem' }}>
+                {selectedFile ? selectedFile.name : 'Click to select or drop a PDF file'}
               </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                {selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB • Ready to ingest` : 'Supports up to 100 MB • Multi-page text & tables'}
+                {selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB • Ready to ingest` : 'Supports up to 25 MB • Multi-page text, tables & technical documents'}
               </div>
               <input 
                 ref={fileInputRef}
                 type="file" 
-                accept=".pdf" 
+                accept=".pdf,application/pdf" 
                 style={{ display: 'none' }} 
                 onChange={handleFileChange}
               />
@@ -256,18 +352,18 @@ export default function SourceModal({ isOpen, onClose, onSourceAdded, token, gue
                   <img src={imagePreview} alt="Preview" style={{ maxHeight: '180px', width: 'auto', objectFit: 'contain' }} />
                 </div>
               ) : (
-                <UploadCloud size={40} style={{ color: 'var(--accent-primary)', margin: '0 auto 0.75rem auto' }} />
+                <UploadCloud size={38} style={{ color: 'var(--accent-primary)', margin: '0 auto 0.75rem auto' }} />
               )}
-              <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.3rem' }}>
-                {selectedFile ? selectedFile.name : 'Select or drop an image, screenshot or diagram'}
+              <div style={{ fontWeight: 600, fontSize: '0.92rem', marginBottom: '0.3rem' }}>
+                {selectedFile ? selectedFile.name : 'Click to select, drop image, or paste with Ctrl+V'}
               </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                Gemini Vision will extract all OCR text, diagrams, and visual details into the vector store
+                Supports PNG, JPG, WebP, GIF, BMP • Gemini Vision OCR extracts text, diagrams & charts
               </div>
               <input 
                 ref={fileInputRef}
                 type="file" 
-                accept="image/*" 
+                accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/*" 
                 style={{ display: 'none' }} 
                 onChange={handleFileChange}
               />
@@ -290,15 +386,15 @@ export default function SourceModal({ isOpen, onClose, onSourceAdded, token, gue
           </div>
         )}
 
-        {/* TAB 3: LINK / YOUTUBE */}
+        {/* TAB 3: LINK / YOUTUBE / APPS */}
         {activeTab === 'link' && (
           <form onSubmit={handleIngestLink}>
-            <div style={{ marginBottom: '1rem' }}>
+            <div style={{ marginBottom: '0.75rem' }}>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
                 URL to Ingest:
               </label>
               <input 
-                type="url"
+                type="text"
                 required
                 className="form-input"
                 style={{
@@ -311,15 +407,28 @@ export default function SourceModal({ isOpen, onClose, onSourceAdded, token, gue
                   fontSize: '0.9rem',
                   outline: 'none'
                 }}
-                placeholder="https://en.wikipedia.org/... or https://youtube.com/watch?v=..."
+                placeholder="youtube.com/watch?v=... or wikipedia.org/... or github.com/..."
                 value={linkInput}
                 onChange={(e) => setLinkInput(e.target.value)}
               />
             </div>
 
+            {/* Quick App Badges */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1rem' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.74rem', background: 'rgba(239, 68, 68, 0.12)', color: '#f87171', padding: '0.2rem 0.55rem', borderRadius: 'var(--radius-full)' }}>
+                <Video size={12} /> YouTube Transcripts
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.74rem', background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', padding: '0.2rem 0.55rem', borderRadius: 'var(--radius-full)' }}>
+                <Globe size={12} /> Web Articles & Blogs
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.74rem', background: 'rgba(52, 211, 153, 0.12)', color: '#34d399', padding: '0.2rem 0.55rem', borderRadius: 'var(--radius-full)' }}>
+                <Sparkles size={12} /> Documentation & Wikis
+              </span>
+            </div>
+
             <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5, background: 'var(--bg-app)', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-sm)' }}>
-              💡 <strong>YouTube Links:</strong> Transcripts are extracted and semantic chunks are indexed into the knowledge base.<br/>
-              🌐 <strong>Web Pages:</strong> HTML articles, documentation, and blog posts are scraped and indexed.
+              🎥 <strong>YouTube:</strong> Fetches verified transcripts and video breakdowns automatically.<br/>
+              🌐 <strong>Web Pages & Apps:</strong> Cleans scripts and scrapes main content for RAG indexing.
             </div>
 
             <button 
@@ -334,6 +443,101 @@ export default function SourceModal({ isOpen, onClose, onSourceAdded, token, gue
                 </>
               ) : (
                 'Scrape & Index Link'
+              )}
+            </button>
+          </form>
+        )}
+
+        {/* TAB 4: RAW TEXT / CODE / NOTES */}
+        {activeTab === 'text' && (
+          <form onSubmit={handleIngestText}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+                  Title / Subject:
+                </label>
+                <input 
+                  type="text"
+                  className="form-input"
+                  style={{
+                    width: '100%',
+                    background: 'var(--bg-app)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '0.65rem 0.85rem',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.88rem',
+                    outline: 'none'
+                  }}
+                  placeholder="e.g. Architecture Overview, Meeting Notes"
+                  value={textTitle}
+                  onChange={(e) => setTextTitle(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+                  Format:
+                </label>
+                <select
+                  value={textType}
+                  onChange={(e) => setTextType(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: 'var(--bg-app)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '0.65rem 0.85rem',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.88rem',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="text">📝 Notes / Markdown</option>
+                  <option value="code">💻 Code / Script</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+                Content to Index:
+              </label>
+              <textarea 
+                required
+                rows={6}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  background: 'var(--bg-app)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '0.75rem 0.85rem',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.88rem',
+                  fontFamily: textType === 'code' ? 'var(--font-mono)' : 'inherit',
+                  outline: 'none',
+                  resize: 'vertical'
+                }}
+                placeholder={textType === 'code' ? "Paste source code, SQL, config, JSON, or scripts here..." : "Paste meeting notes, emails, Notion content, documentation, or study notes..."}
+                value={textContent}
+                onChange={(e) => setTextContent(e.target.value)}
+              />
+            </div>
+
+            <button 
+              type="submit"
+              className="btn-gradient" 
+              style={{ width: '100%', justifyContent: 'center' }}
+              disabled={loading || !textContent.trim()}
+            >
+              {loading ? (
+                <>
+                  <RefreshCw size={16} className="animate-spin" /> Chunking & Indexing Content...
+                </>
+              ) : (
+                'Index Notes & Code'
               )}
             </button>
           </form>

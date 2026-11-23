@@ -9,6 +9,7 @@ import {
   FileText, 
   Image as ImageIcon, 
   Link as LinkIcon,
+  FileCode,
   User as UserIcon,
   LogIn,
   LogOut,
@@ -34,6 +35,7 @@ export default function Navbar({
   const pdfCount = sources.filter(s => s.type === 'pdf').length;
   const imgCount = sources.filter(s => s.type === 'image').length;
   const linkCount = sources.filter(s => s.type === 'link').length;
+  const noteCount = sources.filter(s => s.type === 'text' || s.type === 'code').length;
 
   const getInitials = (name) => {
     if (!name) return 'NI';
@@ -52,7 +54,7 @@ export default function Navbar({
             <span className="brand-tag">NI • MULTIMODAL</span>
           </h1>
           <div className="brand-sub">
-            AI Document & Media Assistant • PDFs • Images • Links
+            AI Knowledge Engine • PDFs • Images • Links & YouTube • Notes
           </div>
         </div>
       </div>
@@ -71,6 +73,14 @@ export default function Navbar({
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: linkCount > 0 ? '#22d3ee' : 'var(--text-muted)' }}>
             <LinkIcon size={14} /> {linkCount} Links
           </span>
+          {noteCount > 0 && (
+            <>
+              <span style={{ color: 'var(--border-subtle)' }}>•</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#a78bfa' }}>
+                <FileCode size={14} /> {noteCount} Notes
+              </span>
+            </>
+          )}
           <span style={{ color: 'var(--border-subtle)' }}>•</span>
           <span style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>
             {totalChunks} Chunks

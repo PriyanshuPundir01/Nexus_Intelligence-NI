@@ -11,6 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
+import { YoutubeTranscript } from 'youtube-transcript';
 
 const require = createRequire(import.meta.url);
 const pdfParse = require('pdf-parse');
@@ -163,7 +164,12 @@ function isValidEmail(email) {
 // Anti-SSRF (Server-Side Request Forgery) protection for web link ingestion
 function isSafeUrl(urlString) {
   try {
-    const parsed = new URL(urlString);
+    if (!urlString || typeof urlString !== 'string') return false;
+    let clean = urlString.trim();
+    if (!/^https?:\/\//i.test(clean)) {
+      clean = 'https://' + clean;
+    }
+    const parsed = new URL(clean);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
       return false;
     }
@@ -280,13 +286,13 @@ const pdfFilter = (req, file, cb) => {
 
 const imageFilter = (req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
-  const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
-  const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
+  const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp', 'image/x-png', 'image/pjpeg'];
+  const allowedExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'];
 
-  if (allowedMimes.includes(file.mimetype) && allowedExts.includes(ext)) {
+  if (allowedMimes.includes(file.mimetype) || allowedExts.includes(ext)) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type: Only JPEG, PNG, and WebP images are permitted.'));
+    cb(new Error('Invalid file type: Supported images are JPEG, PNG, WebP, GIF, and BMP.'));
   }
 };
 
@@ -298,17 +304,25 @@ const uploadPDF = multer({
 
 const uploadImage = multer({
   storage: multer.memoryStorage(),
-  limits: fileLimits,
+  limits: { fileSize: 30 * 1024 * 1024 }, // 30 MB max for high-res images/diagrams
   fileFilter: imageFilter
 });
 
-// Candidate models for automatic failover
+// Candidate models for automatic failover with active Gemini API models
 const CANDIDATE_MODELS = [
-  process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-  'gemini-2.5-flash',
-  'gemini-1.5-flash',
-  'gemini-1.5-pro'
+  process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
+  'gemini-3.5-flash-lite',
+  'gemini-3-flash-preview',
+  'gemini-3.1-flash-lite-preview',
+  'gemini-flash-latest'
 ];
+
+// YouTube URL parser & video ID extractor
+function extractYouTubeId(url) {
+  if (!url || typeof url !== 'string') return null;
+  const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/i);
+  return match ? match[1] : null;
+}
 
 // In-Memory Multimodal Vector Store
 let vectorStore = {
@@ -669,7 +683,8 @@ app.get('/api/sources', optionalAuth, (req, res) => {
     activeCounts: {
       pdf: userSources.filter(s => s.type === 'pdf').length,
       image: userSources.filter(s => s.type === 'image').length,
-      link: userSources.filter(s => s.type === 'link').length
+      link: userSources.filter(s => s.type === 'link').length,
+      text: userSources.filter(s => s.type === 'text' || s.type === 'code').length
     }
   });
 });
@@ -777,7 +792,7 @@ Be thorough, precise, and highly detailed.`
   }
 });
 
-// 4. POST /api/ingest-link - Web link or YouTube ingestion (with SSRF protection)
+// 4. POST /api/ingest-link - Web link or YouTube ingestion (with SSRF protection & real transcript extraction)
 app.post('/api/ingest-link', optionalAuth, aiLimiter, async (req, res) => {
   try {
     const { url } = req.body;
@@ -785,26 +800,68 @@ app.post('/api/ingest-link', optionalAuth, aiLimiter, async (req, res) => {
       return res.status(400).json({ error: 'A valid URL is required.' });
     }
 
+    let cleanUrl = url.trim();
+    if (!/^https?:\/\//i.test(cleanUrl)) {
+      cleanUrl = 'https://' + cleanUrl;
+    }
+
     // SSRF Security Check
-    if (!isSafeUrl(url)) {
+    if (!isSafeUrl(cleanUrl)) {
       return res.status(400).json({ error: 'Forbidden URL: Local, loopback, or private addresses cannot be indexed.' });
     }
 
     const userId = req.user?.id || 'guest';
     let scrapedText = '';
-    let linkTitle = sanitizeText(url, 120);
+    let linkTitle = sanitizeText(cleanUrl, 120);
 
-    const isYouTube = /(youtube\.com|youtu\.be)/i.test(url);
+    const isYouTube = /(youtube\.com|youtu\.be)/i.test(cleanUrl);
+    const ytVideoId = isYouTube ? extractYouTubeId(cleanUrl) : null;
 
-    if (isYouTube) {
-      linkTitle = `YouTube: ${sanitizeText(url, 80)}`;
-      const ytPrompt = `The user provided this YouTube video link: ${url}. Provide an in-depth, structured transcript and technical educational summary of the subject matter covered by this video link so it can be indexed into a RAG knowledge base.`;
-      scrapedText = await callGemini(ytPrompt, 'You are an expert audio-visual transcriber.', 0.2);
+    if (isYouTube && ytVideoId) {
+      // 1. Retrieve video metadata via YouTube oEmbed API
+      let ytTitle = `YouTube Video (${ytVideoId})`;
+      let ytAuthor = '';
+      try {
+        const oembedRes = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${ytVideoId}&format=json`, {
+          signal: AbortSignal.timeout(6000)
+        });
+        if (oembedRes.ok) {
+          const meta = await oembedRes.json();
+          if (meta.title) ytTitle = meta.title;
+          if (meta.author_name) ytAuthor = meta.author_name;
+        }
+      } catch (oembedErr) {
+        if (NODE_ENV !== 'production') console.warn('YouTube oEmbed lookup warning:', oembedErr.message);
+      }
+      linkTitle = ytAuthor ? `${ytTitle} — ${ytAuthor}` : ytTitle;
+
+      // 2. Fetch real captions/transcript from YouTube
+      let transcriptText = '';
+      try {
+        const transcriptEntries = await YoutubeTranscript.fetchTranscript(ytVideoId);
+        if (transcriptEntries && transcriptEntries.length > 0) {
+          transcriptText = transcriptEntries.map(entry => entry.text).join(' ');
+        }
+      } catch (ytErr) {
+        if (NODE_ENV !== 'production') console.warn('YouTube direct transcript unavailable:', ytErr.message);
+      }
+
+      // 3. If transcript was retrieved, index it with metadata; otherwise synthesize with Gemini
+      if (transcriptText && transcriptText.length > 50) {
+        scrapedText = `[YouTube Video: "${ytTitle}" by ${ytAuthor || 'Creator'}]\n\nFull Video Transcript:\n${transcriptText}`;
+      } else {
+        const ytPrompt = `The user provided this YouTube video: "${ytTitle}" (${cleanUrl}) by ${ytAuthor || 'Creator'}.
+Provide an in-depth, structured educational summary, conceptual breakdown, and technical takeaways covering the core subject matter of this video link for a RAG knowledge base.`;
+        scrapedText = await callGemini(ytPrompt, 'You are an expert educational knowledge indexing assistant.', 0.2);
+      }
     } else {
       try {
-        const fetchRes = await fetch(url, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-          signal: AbortSignal.timeout(8000) // 8 second timeout
+        const fetchRes = await fetch(cleanUrl, {
+          headers: { 
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+          },
+          signal: AbortSignal.timeout(10000)
         });
         const html = await fetchRes.text();
         
@@ -815,17 +872,25 @@ app.post('/api/ingest-link', optionalAuth, aiLimiter, async (req, res) => {
 
         let clean = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ');
         clean = clean.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ');
+        clean = clean.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ');
+        clean = clean.replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ');
         clean = clean.replace(/<[^>]+>/g, ' ');
         clean = clean.replace(/\s+/g, ' ').trim();
 
-        scrapedText = clean;
+        if (clean.length > 80) {
+          scrapedText = clean;
+        } else {
+          throw new Error('Web page content too short');
+        }
       } catch (fetchErr) {
-        const webPrompt = `Synthesize full technical reference content and factual data for the website URL: ${url} for indexing into a RAG knowledge base.`;
+        if (NODE_ENV !== 'production') console.warn('Direct web fetch failed, falling back to Gemini knowledge synthesis:', fetchErr.message);
+        const webPrompt = `The user provided this web page or application documentation link: ${cleanUrl}.
+Extract or synthesize a comprehensive, structured technical knowledge reference summarizing the subject matter, architecture, key concepts, and actionable insights associated with this URL for indexing into a RAG knowledge base.`;
         scrapedText = await callGemini(webPrompt, 'You are a web knowledge indexing assistant.', 0.2);
       }
     }
 
-    if (!scrapedText || scrapedText.length < 50) {
+    if (!scrapedText || scrapedText.length < 30) {
       return res.status(400).json({ error: 'Could not extract sufficient text from this link.' });
     }
 
@@ -837,7 +902,7 @@ app.post('/api/ingest-link', optionalAuth, aiLimiter, async (req, res) => {
       id: sourceId,
       userId,
       name: linkTitle,
-      url: sanitizeText(url, 200),
+      url: sanitizeText(cleanUrl, 200),
       type: 'link',
       chunkCount: newChunks.length,
       preview: sanitizeText(scrapedText.substring(0, 200)) + '...',
@@ -853,6 +918,46 @@ app.post('/api/ingest-link', optionalAuth, aiLimiter, async (req, res) => {
   } catch (err) {
     if (NODE_ENV !== 'production') console.error('Link Ingestion Error:', err);
     res.status(500).json({ error: `Link Ingestion Error: ${err.message}` });
+  }
+});
+
+// 5. POST /api/ingest-text - Ingest raw text, markdown, notes, or code from any app
+app.post('/api/ingest-text', optionalAuth, async (req, res) => {
+  try {
+    const { title, text, type = 'text' } = req.body;
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      return res.status(400).json({ error: 'Please enter text content to ingest.' });
+    }
+
+    const cleanTitle = sanitizeText(title || 'Pasted Note', 100);
+    const userId = req.user?.id || 'guest';
+    const sourceId = `src_txt_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+    const newChunks = chunkText(text.trim(), sourceId, userId, cleanTitle, type, 1000, 200);
+
+    if (newChunks.length === 0) {
+      return res.status(400).json({ error: 'Text content is too short to index (minimum 30 characters).' });
+    }
+
+    vectorStore.chunks = [...vectorStore.chunks, ...newChunks];
+    const sourceObj = {
+      id: sourceId,
+      userId,
+      name: cleanTitle,
+      type: type === 'code' ? 'code' : 'text',
+      chunkCount: newChunks.length,
+      preview: sanitizeText(text.substring(0, 200)) + '...',
+      timestamp: new Date().toLocaleTimeString()
+    };
+    vectorStore.sources.push(sourceObj);
+
+    res.json({
+      success: true,
+      source: sourceObj,
+      totalChunks: vectorStore.chunks.filter(c => c.userId === userId).length
+    });
+  } catch (err) {
+    if (NODE_ENV !== 'production') console.error('Text Ingestion Error:', err);
+    res.status(500).json({ error: `Text Ingestion Error: ${err.message}` });
   }
 });
 

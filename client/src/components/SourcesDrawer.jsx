@@ -3,6 +3,7 @@ import {
   FileText, 
   Image as ImageIcon, 
   Link as LinkIcon, 
+  FileCode,
   Trash2, 
   ChevronRight, 
   Layers, 
@@ -59,6 +60,7 @@ export default function SourcesDrawer({
                       {src.type === 'pdf' && <FileText size={11} />}
                       {src.type === 'image' && <ImageIcon size={11} />}
                       {src.type === 'link' && <LinkIcon size={11} />}
+                      {(src.type === 'text' || src.type === 'code') && <FileCode size={11} />}
                       {src.type}
                     </span>
                     <span 
