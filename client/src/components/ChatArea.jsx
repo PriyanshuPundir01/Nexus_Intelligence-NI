@@ -15,7 +15,10 @@ import {
   Zap, 
   CheckCircle2, 
   MessageSquare,
-  RotateCcw
+  RotateCcw,
+  StickyNote,
+  Headphones,
+  BookOpen
 } from 'lucide-react';
 
 // Lightweight, clean Markdown renderer for structured, easily readable responses with XSS Sanitization
@@ -108,6 +111,8 @@ export default function ChatArea({
   totalChunks = 0, 
   onSelectPrompt,
   onOpenAddModal,
+  onOpenStudio,
+  onSaveNote,
   user
 }) {
   const [copiedId, setCopiedId] = useState(null);
@@ -204,18 +209,32 @@ export default function ChatArea({
               + Upload PDF, Image, or Link
             </button>
           ) : (
-            <div className="quick-prompts-grid">
-              {quickPrompts.map((p, idx) => (
-                <button 
-                  key={idx} 
-                  className="quick-prompt-btn"
-                  onClick={() => onSelectPrompt(p.query)}
-                >
-                  <div className="quick-prompt-title">{p.title}</div>
-                  <div>{p.desc}</div>
-                </button>
-              ))}
-            </div>
+            <>
+              {onOpenStudio && (
+                <div style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'center' }}>
+                  <button 
+                    onClick={onOpenStudio}
+                    className="btn-gradient"
+                    style={{ padding: '0.65rem 1.25rem', fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 18px rgba(99, 102, 241, 0.4)' }}
+                  >
+                    <Headphones size={16} /> Open Notebook Studio (Audio Overview & Study Guide)
+                  </button>
+                </div>
+              )}
+
+              <div className="quick-prompts-grid">
+                {quickPrompts.map((p, idx) => (
+                  <button 
+                    key={idx} 
+                    className="quick-prompt-btn"
+                    onClick={() => onSelectPrompt(p.query)}
+                  >
+                    <div className="quick-prompt-title">{p.title}</div>
+                    <div>{p.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </>
           )}
         </div>
       ) : (
@@ -301,14 +320,33 @@ export default function ChatArea({
                     <Zap size={12} /> Nexus Intelligence (NI)
                   </span>
 
-                  <button 
-                    className="composer-btn-icon" 
-                    style={{ width: '26px', height: '26px' }}
-                    onClick={() => handleCopy(msg.text, msg.id)}
-                    title="Copy response"
-                  >
-                    {copiedId === msg.id ? <Check size={13} color="#10b981" /> : <Copy size={13} />}
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    {onSaveNote && (
+                      <button 
+                        className="composer-btn-icon" 
+                        style={{ width: '26px', height: '26px' }}
+                        onClick={() => {
+                          onSaveNote({
+                            id: `note_${Date.now()}`,
+                            title: 'Saved Chat Insight',
+                            content: msg.text,
+                            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                          });
+                        }}
+                        title="Save response to Notes"
+                      >
+                        <StickyNote size={13} />
+                      </button>
+                    )}
+                    <button 
+                      className="composer-btn-icon" 
+                      style={{ width: '26px', height: '26px' }}
+                      onClick={() => handleCopy(msg.text, msg.id)}
+                      title="Copy response"
+                    >
+                      {copiedId === msg.id ? <Check size={13} color="#10b981" /> : <Copy size={13} />}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Formatted Content */}

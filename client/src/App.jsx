@@ -5,17 +5,48 @@ import ChatArea from './components/ChatArea';
 import ChatInput from './components/ChatInput';
 import SourceModal from './components/SourceModal';
 import AuthModal from './components/AuthModal';
+import NotebookStudio from './components/NotebookStudio';
+import SourceInspectorModal from './components/SourceInspectorModal';
 import SignInPage from './pages/SignInPage';
 import SignUpPage from './pages/SignUpPage';
 
 export default function App() {
   const [sources, setSources] = useState([]);
+  const [selectedSourceIds, setSelectedSourceIds] = useState([]);
   const [totalChunks, setTotalChunks] = useState(0);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isStudioOpen, setIsStudioOpen] = useState(true);
+  const [inspectedSource, setInspectedSource] = useState(null);
   const [theme, setTheme] = useState('dark');
+
+  // NotebookLM Notes State (Synced with localStorage)
+  const [notes, setNotes] = useState(() => {
+    try {
+      const savedNotes = localStorage.getItem('ni_notes');
+      return savedNotes ? JSON.parse(savedNotes) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const handleAddNote = (newNote) => {
+    setNotes(prev => {
+      const updated = [newNote, ...prev];
+      localStorage.setItem('ni_notes', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleDeleteNote = (noteId) => {
+    setNotes(prev => {
+      const updated = prev.filter(n => n.id !== noteId);
+      localStorage.setItem('ni_notes', JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   // Client-side URL Routing State (/signin, /signup, /)
   const [currentRoute, setCurrentRoute] = useState(() => {
@@ -106,8 +137,14 @@ export default function App() {
       const res = await fetch('/api/sources', { headers });
       if (res.ok) {
         const data = await res.json();
-        setSources(data.sources || []);
+        const incomingSources = data.sources || [];
+        setSources(incomingSources);
         setTotalChunks(data.totalChunks || 0);
+        setSelectedSourceIds(prev => {
+          if (prev.length === 0) return incomingSources.map(s => s.id);
+          const existingValid = prev.filter(id => incomingSources.some(s => s.id === id));
+          return existingValid.length > 0 ? existingValid : incomingSources.map(s => s.id);
+        });
       }
     } catch (err) {
       console.error('Error fetching sources:', err);
@@ -117,6 +154,22 @@ export default function App() {
   useEffect(() => {
     loadSources(token);
   }, [token]);
+
+  const handleToggleSelectSource = (sourceId) => {
+    setSelectedSourceIds(prev => 
+      prev.includes(sourceId)
+        ? prev.filter(id => id !== sourceId)
+        : [...prev, sourceId]
+    );
+  };
+
+  const handleSelectAllSources = () => {
+    setSelectedSourceIds(sources.map(s => s.id));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedSourceIds([]);
+  };
 
   const handleAuthSuccess = (authenticatedUser, authToken) => {
     setUser(authenticatedUser);
@@ -152,12 +205,13 @@ export default function App() {
 
   const handleSourceAdded = (newSource) => {
     loadSources(token);
+    setSelectedSourceIds(prev => [...prev, newSource.id]);
     setMessages(prev => [
       ...prev,
       {
         id: `sys_${Date.now()}`,
         role: 'assistant',
-        text: `Successfully ingested and indexed **"${newSource.name}"** (${newSource.type.toUpperCase()}) into your Knowledge Hub! You can now ask any question related to it.`,
+        text: `Successfully ingested and indexed **"${newSource.name}"** (${newSource.type.toUpperCase()}) into your Knowledge Hub! You can now query it or generate Audio Overviews & Study Guides.`,
         citations: []
       }
     ]);
@@ -172,6 +226,7 @@ export default function App() {
         headers
       });
       if (res.ok) {
+        setSelectedSourceIds(prev => prev.filter(id => id !== sourceId));
         loadSources(token);
       }
     } catch (err) {
@@ -192,6 +247,7 @@ export default function App() {
       });
       if (res.ok) {
         setSources([]);
+        setSelectedSourceIds([]);
         setTotalChunks(0);
         setMessages([]);
       }
@@ -226,6 +282,7 @@ export default function App() {
         headers,
         body: JSON.stringify({
           query: queryText,
+          selectedSourceIds: selectedSourceIds.length > 0 ? selectedSourceIds : undefined,
           conversationHistory: historyPayload
         })
       });
@@ -299,6 +356,8 @@ export default function App() {
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
         onNavigate={navigate}
+        isStudioOpen={isStudioOpen}
+        onToggleStudio={() => setIsStudioOpen(!isStudioOpen)}
       />
 
       {/* Main Split Layout */}
@@ -307,8 +366,13 @@ export default function App() {
         {/* Knowledge Sources Drawer */}
         <SourcesDrawer 
           sources={sources}
+          selectedSourceIds={selectedSourceIds}
+          onToggleSelectSource={handleToggleSelectSource}
+          onSelectAllSources={handleSelectAllSources}
+          onClearSelection={handleClearSelection}
           onDeleteSource={handleDeleteSource}
           onOpenAddModal={() => setIsAddModalOpen(true)}
+          onInspectSource={src => setInspectedSource(src)}
         />
 
         {/* Chat Workspace */}
@@ -320,6 +384,8 @@ export default function App() {
             totalChunks={totalChunks}
             onSelectPrompt={handleSendMessage}
             onOpenAddModal={() => setIsAddModalOpen(true)}
+            onOpenStudio={() => setIsStudioOpen(true)}
+            onSaveNote={handleAddNote}
             user={user}
           />
 
@@ -330,7 +396,29 @@ export default function App() {
           />
         </div>
 
+        {/* NotebookLM Studio Panel */}
+        <NotebookStudio 
+          isOpen={isStudioOpen}
+          onClose={() => setIsStudioOpen(false)}
+          sources={sources}
+          selectedSourceIds={selectedSourceIds}
+          token={token}
+          guestSessionId={guestSessionId}
+          notes={notes}
+          onAddNote={handleAddNote}
+          onDeleteNote={handleDeleteNote}
+        />
+
       </div>
+
+      {/* Source Inspector Modal */}
+      <SourceInspectorModal 
+        isOpen={!!inspectedSource}
+        onClose={() => setInspectedSource(null)}
+        source={inspectedSource}
+        token={token}
+        guestSessionId={guestSessionId}
+      />
 
       {/* Ingest Source Modal (PDF / Image / Link) */}
       <SourceModal 

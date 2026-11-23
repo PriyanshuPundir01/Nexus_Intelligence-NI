@@ -310,10 +310,10 @@ const uploadImage = multer({
 
 // Candidate models for automatic failover with active Gemini API models
 const CANDIDATE_MODELS = [
-  process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
-  'gemini-3.5-flash-lite',
-  'gemini-3-flash-preview',
-  'gemini-3.1-flash-lite-preview',
+  process.env.GEMINI_MODEL || 'gemini-3.5-flash',
+  'gemini-3.5-flash',
+  'gemini-3.6-flash',
+  'gemini-flash-lite-latest',
   'gemini-flash-latest'
 ];
 
@@ -964,7 +964,7 @@ app.post('/api/ingest-text', optionalAuth, async (req, res) => {
 // 5. POST /api/chat - Conversational RAG Query
 app.post('/api/chat', optionalAuth, aiLimiter, async (req, res) => {
   try {
-    const { query } = req.body;
+    const { query, selectedSourceIds } = req.body;
     if (!query || typeof query !== 'string') {
       return res.status(400).json({ error: 'A query string is required.' });
     }
@@ -974,15 +974,18 @@ app.post('/api/chat', optionalAuth, aiLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Please enter a valid query.' });
     }
 
-    const userId = req.user?.id;
-    const availableChunks = userId
-      ? vectorStore.chunks.filter(c => c.userId === userId)
-      : [];
+    const userId = req.user?.id || 'guest';
+    let availableChunks = vectorStore.chunks.filter(c => c.userId === userId);
+
+    // Filter by selected sources if specified by client
+    if (Array.isArray(selectedSourceIds) && selectedSourceIds.length > 0) {
+      availableChunks = availableChunks.filter(c => selectedSourceIds.includes(c.sourceId));
+    }
 
     if (availableChunks.length === 0) {
       return res.json({
         success: true,
-        answer: "No documents, images, or links have been added to your Knowledge Hub yet. Please upload a PDF, image, or link above to begin querying!",
+        answer: "No active or selected documents, images, or links were found. Please upload or select at least one source in the Knowledge Sources drawer to begin querying!",
         citedPassages: []
       });
     }
@@ -1081,6 +1084,151 @@ app.post('/api/clear', authenticateUserOrGuest, (req, res) => {
   vectorStore.chunks = vectorStore.chunks.filter(c => c.userId !== userId);
 
   res.json({ success: true, message: 'Your knowledge base was cleared successfully.' });
+});
+
+// 8. GET /api/sources/:id/chunks - Inspect raw chunks for a specific source
+app.get('/api/sources/:id/chunks', optionalAuth, (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+
+  const source = vectorStore.sources.find(s => s.id === id);
+  if (!source) {
+    return res.status(404).json({ error: 'Source not found.' });
+  }
+
+  const chunks = vectorStore.chunks
+    .filter(c => c.sourceId === id)
+    .map(c => ({
+      id: c.id,
+      text: c.text,
+      chunkIndex: c.chunkIndex,
+      type: c.type,
+      sourceName: c.sourceName
+    }));
+
+  res.json({
+    success: true,
+    source,
+    chunks
+  });
+});
+
+// 9. POST /api/studio/generate - Generate NotebookLM Studio Artifacts (Audio Overview / Podcast, Study Guide, FAQ, Timeline, Briefing Doc)
+app.post('/api/studio/generate', optionalAuth, aiLimiter, async (req, res) => {
+  try {
+    const { type = 'podcast', selectedSourceIds, focus } = req.body;
+    const userId = req.user?.id || 'guest';
+
+    let availableChunks = vectorStore.chunks.filter(c => c.userId === userId);
+
+    if (Array.isArray(selectedSourceIds) && selectedSourceIds.length > 0) {
+      availableChunks = availableChunks.filter(c => selectedSourceIds.includes(c.sourceId));
+    }
+
+    if (availableChunks.length === 0) {
+      return res.status(400).json({ 
+        error: 'No active sources found. Please upload or select at least one source in your Knowledge Sources drawer.' 
+      });
+    }
+
+    // Limit chunk context window to top 15 chunks (or all if fewer)
+    const contextChunks = availableChunks.slice(0, 15);
+    const contextFormatted = contextChunks.map((chunk, i) => 
+      `[Source Excerpt ${i + 1} | "${chunk.sourceName}"]: \n${chunk.text}`
+    ).join('\n\n---\n\n');
+
+    let systemPrompt = '';
+    let userPrompt = '';
+
+    if (type === 'podcast') {
+      systemPrompt = `You are the lead showrunner and audio director for Nexus Intelligence Deep Dive, an acclaimed podcast like Google NotebookLM's Audio Overview.
+You produce a lively, natural, deeply informative 2-host conversation between:
+- **Alex**: The curious, engaging co-host who frames big questions, uses vivid everyday analogies, and keeps the energy dynamic.
+- **Jordan**: The sharp, insightful expert who breaks down technical depth, cites evidence from the user's sources, and connects subtle dots.
+
+FORMAT REQUIREMENTS:
+1. Every line of dialogue MUST start strictly with either "Alex: " or "Jordan: "
+2. Keep the dialogue fast-paced, banter-rich, natural, and conversational. They react to each other ("Totally", "That's wild", "Here's what caught my eye...", "Right, but look at...").
+3. Ground the discussion strictly in the provided source material. Mention source names and concepts naturally.
+4. Total length: roughly 10 to 16 turns back and forth.
+5. Do NOT include markdown stage directions like "(laughs)" or "[intro music]" inside the speaker lines. Keep text clean for text-to-speech rendering.`;
+
+      userPrompt = `Generate a compelling NotebookLM Deep Dive podcast dialogue between Alex and Jordan summarizing and exploring the following source materials:
+
+${contextFormatted}
+
+${focus ? `Special focus requested by user: ${focus}` : 'Cover the core themes, breakthroughs, surprising facts, and practical takeaways.'}`;
+    } else if (type === 'study-guide') {
+      systemPrompt = `You are an elite educational researcher producing a master Study Guide in Google NotebookLM style.
+Structure your output cleanly with these sections:
+# 📚 Master Study Guide
+## 1. Executive Summary & Core Objective
+(A high-level synthesis of what this material is and why it matters)
+
+## 2. Key Concepts & Deep Breakdown
+(Bullet points with bold concepts, clear explanations, and real-world examples)
+
+## 3. Practice Quiz & Knowledge Check
+(5 challenging short-answer or multiple-choice questions testing comprehension)
+
+## 4. Answer Key & Rationales
+(Detailed answers with explanations for each quiz question)
+
+## 5. Essential Glossary of Terms
+(Table or bulleted definitions of critical terminology)`;
+
+      userPrompt = `Create an exhaustive, high-yield Study Guide based strictly on these sources:
+
+${contextFormatted}`;
+    } else if (type === 'faq') {
+      systemPrompt = `You are a knowledge architecture specialist generating a comprehensive FAQ (Frequently Asked Questions) in Google NotebookLM style.
+Identify the 6-8 most critical, nuanced, or commonly misunderstood questions someone reviewing these sources would ask.
+Provide crystal-clear, direct, and authoritative answers grounded strictly in the source material.`;
+
+      userPrompt = `Generate a structured, insightful FAQ with answers based on the following sources:
+
+${contextFormatted}`;
+    } else if (type === 'timeline') {
+      systemPrompt = `You are a chronological analyst for Nexus Intelligence.
+Extract all timeline events, dates, historical milestones, project phases, and sequential evolutions from the provided sources into a structured chronological timeline.
+Format each milestone clearly with:
+- 📅 **[Date / Phase / Milestone]**: Detailed description of what occurred, why it matters, and the source.
+- Conclude with a summary of the overall trajectory or next steps.`;
+
+      userPrompt = `Extract and construct a chronological timeline and milestone map from these sources:
+
+${contextFormatted}`;
+    } else if (type === 'briefing') {
+      systemPrompt = `You are a strategic intelligence director producing a high-stakes Executive Briefing Memo in Google NotebookLM style.
+Structure:
+# 📑 Executive Briefing Document
+- **To**: Stakeholders / Leadership / Research Team
+- **Subject**: Strategic Synthesis & Actionable Analysis
+- **Executive Summary**: 2-3 high-impact paragraphs
+- **Key Findings & Evidence**: Quantifiable data and findings
+- **Strategic Implications & Risks**: Blind spots or crucial impact
+- **Recommendations & Action Plan**: Concrete next steps`;
+
+      userPrompt = `Produce an Executive Briefing Memo based strictly on these sources:
+
+${contextFormatted}`;
+    } else {
+      return res.status(400).json({ error: `Unknown studio type: ${type}` });
+    }
+
+    const generatedContent = await callGemini(userPrompt, systemPrompt, 0.3);
+
+    res.json({
+      success: true,
+      type,
+      content: generatedContent,
+      sourceCount: contextChunks.length,
+      timestamp: new Date().toLocaleTimeString()
+    });
+  } catch (err) {
+    if (NODE_ENV !== 'production') console.error('Studio Generation Error:', err);
+    res.status(500).json({ error: `Studio Generation Error: ${err.message}` });
+  }
 });
 
 // Health check (Sanitized status)

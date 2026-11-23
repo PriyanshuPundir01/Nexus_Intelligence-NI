@@ -15,7 +15,8 @@ import {
   LogOut,
   UserPlus,
   ShieldCheck,
-  ChevronDown
+  ChevronDown,
+  Headphones
 } from 'lucide-react';
 
 export default function Navbar({ 
@@ -28,7 +29,9 @@ export default function Navbar({
   user,
   onOpenAuthModal,
   onLogout,
-  onNavigate
+  onNavigate,
+  isStudioOpen,
+  onToggleStudio
 }) {
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -89,6 +92,16 @@ export default function Navbar({
       </div>
 
       <div className="nav-actions">
+        <button 
+          className={isStudioOpen ? "btn-gradient" : "btn-ghost"}
+          onClick={onToggleStudio}
+          title="NotebookLM Studio (Podcast Audio Overview, Study Guides, FAQs & Notes)"
+          style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+        >
+          <Headphones size={15} />
+          <span>Studio</span>
+        </button>
+
         <button 
           className="btn-gradient" 
           onClick={onOpenAddModal}

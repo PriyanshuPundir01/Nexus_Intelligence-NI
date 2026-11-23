@@ -1481,3 +1481,27 @@ body {
   }
 }
 
+/* NotebookLM Studio Panel & Animations */
+.spin-animate {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 1100px) {
+  .studio-panel {
+    position: absolute !important;
+    right: 0 !important;
+    top: 64px !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: 440px !important;
+    box-shadow: var(--shadow-md) !important;
+    z-index: 50 !important;
+  }
+}
+
+
