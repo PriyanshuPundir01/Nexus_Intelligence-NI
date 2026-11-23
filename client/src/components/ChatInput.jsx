@@ -85,7 +85,7 @@ export default function ChatInput({
       </div>
 
       <div style={{ marginTop: '0.55rem', display: 'flex', alignItems: 'center', gap: '0.85rem', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-        <span>⚡ <strong>Gemini RAG Engine</strong></span>
+        <span>⚡ <strong>Nexus Intelligence Engine</strong></span>
         <span>•</span>
         <span>📄 PDFs</span>
         <span>•</span>

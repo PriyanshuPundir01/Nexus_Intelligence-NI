@@ -185,7 +185,7 @@ export default function SignInPage({
                 </div>
                 <div>
                   <div className="auth-feature-title">Diagram & Visual OCR Analysis</div>
-                  <div className="auth-feature-desc">Query technical architecture charts, screenshots, and infographics using Gemini Multimodal Vision.</div>
+                  <div className="auth-feature-desc">Query technical architecture charts, screenshots, and infographics using Nexus Intelligence Multimodal Vision.</div>
                 </div>
               </div>
 

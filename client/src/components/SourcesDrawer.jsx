@@ -101,7 +101,7 @@ export default function SourcesDrawer({
 
       <div style={{ padding: '0.85rem 1.25rem', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-app)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
         <span>Retrieval: <strong>top-k=4 chunks</strong></span>
-        <span>Model: <strong>Gemini Flash</strong></span>
+        <span>Engine: <strong>Nexus Intelligence</strong></span>
       </div>
     </aside>
   );

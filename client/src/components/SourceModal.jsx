@@ -358,7 +358,7 @@ export default function SourceModal({ isOpen, onClose, onSourceAdded, token, gue
                 {selectedFile ? selectedFile.name : 'Click to select, drop image, or paste with Ctrl+V'}
               </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                Supports PNG, JPG, WebP, GIF, BMP • Gemini Vision OCR extracts text, diagrams & charts
+                Supports PNG, JPG, WebP, GIF, BMP • Nexus Intelligence Vision OCR extracts text, diagrams & charts
               </div>
               <input 
                 ref={fileInputRef}
@@ -377,7 +377,7 @@ export default function SourceModal({ isOpen, onClose, onSourceAdded, token, gue
             >
               {loading ? (
                 <>
-                  <RefreshCw size={16} className="animate-spin" /> Running Gemini Multimodal Vision Analysis...
+                  <RefreshCw size={16} className="animate-spin" /> Running Nexus Intelligence Vision Analysis...
                 </>
               ) : (
                 'Analyze & Index Image'

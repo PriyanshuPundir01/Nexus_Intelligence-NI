@@ -8,7 +8,7 @@ export default function GeminiSearchingLoader() {
     'Scanning multimodal vector embeddings...',
     'Searching across uploaded PDFs, Images & Links...',
     'Matching top semantic passages & verified citations...',
-    'Gemini AI synthesizing high-impact response...'
+    'Nexus Intelligence synthesizing high-impact response...'
   ];
 
   useEffect(() => {

@@ -219,7 +219,7 @@ export default function SignUpPage({
             </h1>
 
             <p className="auth-hero-desc">
-              Create your account to unlock high-capacity document indexing, OCR visual reasoning, and instant YouTube transcript search powered by Google Gemini AI.
+              Create your account to unlock high-capacity document indexing, OCR visual reasoning, and instant YouTube transcript search powered by Nexus Intelligence.
             </p>
 
             <div className="auth-feature-cards">
