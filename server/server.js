@@ -27,10 +27,14 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'production';
 
-// Security: Load API Key from Environment without exposing hardcoded fallbacks
+// Multi-Provider AI Keys Configuration (Google Gemini, Groq, OpenRouter)
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-if (!GOOGLE_API_KEY) {
-  console.warn('\x1b[33m[SECURITY WARNING] GOOGLE_API_KEY is not defined in .env. Gemini AI features will return 503 until configured.\x1b[0m');
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const DEFAULT_AI_PROVIDER = process.env.AI_PROVIDER || 'auto'; // 'auto' | 'gemini' | 'groq' | 'openrouter'
+
+if (!GOOGLE_API_KEY && !GROQ_API_KEY && !OPENROUTER_API_KEY) {
+  console.warn('\x1b[33m[SECURITY WARNING] No AI API keys (GOOGLE_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY) configured in .env.\x1b[0m');
 }
 
 // Security: Enforce JWT Secret from Environment
@@ -413,9 +417,144 @@ function retrieveTopK(query, chunks, k = 4) {
 }
 
 // -------------------------------------------------------------
-// CALL GEMINI (Text & Multimodal Vision)
+// MULTI-PROVIDER AI ENGINE (Google Gemini, Groq & OpenRouter)
 // -------------------------------------------------------------
-async function callGemini(parts, systemInstruction = '', temperature = 0.2) {
+
+// Helper: Transform Gemini parts into OpenAI-compatible message content
+function transformPartsToOpenAI(parts) {
+  if (typeof parts === 'string') {
+    return [{ role: 'user', content: parts }];
+  }
+
+  const userContent = [];
+  for (const part of parts) {
+    if (part.text) {
+      userContent.push({ type: 'text', text: part.text });
+    } else if (part.inlineData) {
+      userContent.push({
+        type: 'image_url',
+        image_url: {
+          url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`
+        }
+      });
+    }
+  }
+
+  return [{ role: 'user', content: userContent.length === 1 && userContent[0].type === 'text' ? userContent[0].text : userContent }];
+}
+
+// 1. Groq Cloud Engine (Ultra-Fast LPU Inference with Free Tier)
+async function callGroq(parts, systemInstruction = '', temperature = 0.2) {
+  if (!GROQ_API_KEY) {
+    throw new Error('GROQ_API_KEY is not configured in .env');
+  }
+
+  const messages = [];
+  if (systemInstruction) {
+    messages.push({ role: 'system', content: systemInstruction });
+  }
+  messages.push(...transformPartsToOpenAI(parts));
+
+  const hasImage = Array.isArray(parts) && parts.some(p => p.inlineData);
+  const models = hasImage 
+    ? ['llama-3.2-11b-vision-preview', 'llama-3.2-90b-vision-preview']
+    : ['llama-3.3-70b-versatile', 'deepseek-r1-distill-llama-70b', 'llama-3.1-8b-instant'];
+
+  let lastErr = null;
+  for (const model of models) {
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature,
+          max_tokens: 4096
+        })
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        if (NODE_ENV !== 'production') console.warn(`[Groq Fallback] Model ${model} returned ${res.status}: ${errText.substring(0, 100)}`);
+        lastErr = new Error(`Groq model ${model} failed (${res.status})`);
+        continue;
+      }
+
+      const data = await res.json();
+      const text = data.choices?.[0]?.message?.content || '';
+      if (text) return text;
+    } catch (err) {
+      if (NODE_ENV !== 'production') console.warn(`[Groq Error] ${model}:`, err.message);
+      lastErr = err;
+    }
+  }
+
+  throw lastErr || new Error('All Groq candidate models failed.');
+}
+
+// 2. OpenRouter Engine (Access to Free Models: Llama 3.3, DeepSeek R1, Mistral)
+async function callOpenRouter(parts, systemInstruction = '', temperature = 0.2) {
+  if (!OPENROUTER_API_KEY) {
+    throw new Error('OPENROUTER_API_KEY is not configured in .env');
+  }
+
+  const messages = [];
+  if (systemInstruction) {
+    messages.push({ role: 'system', content: systemInstruction });
+  }
+  messages.push(...transformPartsToOpenAI(parts));
+
+  const freeModels = [
+    'meta-llama/llama-3.3-70b-instruct:free',
+    'deepseek/deepseek-r1:free',
+    'deepseek/deepseek-chat:free',
+    'mistralai/mistral-7b-instruct:free'
+  ];
+
+  let lastErr = null;
+  for (const model of freeModels) {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': CLIENT_URL,
+          'X-Title': 'Nexus Intelligence'
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature,
+          max_tokens: 4096
+        })
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        if (NODE_ENV !== 'production') console.warn(`[OpenRouter Fallback] Model ${model} returned ${res.status}: ${errText.substring(0, 100)}`);
+        lastErr = new Error(`OpenRouter model ${model} failed (${res.status})`);
+        continue;
+      }
+
+      const data = await res.json();
+      const text = data.choices?.[0]?.message?.content || '';
+      if (text) return text;
+    } catch (err) {
+      if (NODE_ENV !== 'production') console.warn(`[OpenRouter Error] ${model}:`, err.message);
+      lastErr = err;
+    }
+  }
+
+  throw lastErr || new Error('All OpenRouter candidate models failed.');
+}
+
+// 3. Google Gemini Engine
+async function callGeminiDirect(parts, systemInstruction = '', temperature = 0.2) {
   if (!GOOGLE_API_KEY) {
     throw new Error('Google Gemini API Key is not configured on this server.');
   }
@@ -475,6 +614,62 @@ async function callGemini(parts, systemInstruction = '', temperature = 0.2) {
 
   throw lastError || new Error('All Gemini candidate models failed.');
 }
+
+// 4. Universal Unified AI Dispatcher with Automatic Provider Failover
+async function callAI(parts, systemInstruction = '', temperature = 0.2) {
+  // If specific provider requested via environment
+  if (DEFAULT_AI_PROVIDER === 'groq' && GROQ_API_KEY) {
+    try {
+      return await callGroq(parts, systemInstruction, temperature);
+    } catch (e) {
+      if (NODE_ENV !== 'production') console.warn('[AI Dispatcher] Groq failed, attempting failover...', e.message);
+    }
+  } else if (DEFAULT_AI_PROVIDER === 'openrouter' && OPENROUTER_API_KEY) {
+    try {
+      return await callOpenRouter(parts, systemInstruction, temperature);
+    } catch (e) {
+      if (NODE_ENV !== 'production') console.warn('[AI Dispatcher] OpenRouter failed, attempting failover...', e.message);
+    }
+  }
+
+  // Priority 1: Google Gemini
+  if (GOOGLE_API_KEY) {
+    try {
+      return await callGeminiDirect(parts, systemInstruction, temperature);
+    } catch (geminiErr) {
+      if (NODE_ENV !== 'production') {
+        console.warn('[AI Dispatcher] Gemini models failed, attempting automatic failover to alternative providers...', geminiErr.message);
+      }
+    }
+  }
+
+  // Priority 2: Groq (if key configured)
+  if (GROQ_API_KEY) {
+    try {
+      return await callGroq(parts, systemInstruction, temperature);
+    } catch (groqErr) {
+      if (NODE_ENV !== 'production') {
+        console.warn('[AI Dispatcher] Groq failover failed...', groqErr.message);
+      }
+    }
+  }
+
+  // Priority 3: OpenRouter (if key configured)
+  if (OPENROUTER_API_KEY) {
+    try {
+      return await callOpenRouter(parts, systemInstruction, temperature);
+    } catch (openRouterErr) {
+      if (NODE_ENV !== 'production') {
+        console.warn('[AI Dispatcher] OpenRouter failover failed...', openRouterErr.message);
+      }
+    }
+  }
+
+  throw new Error('All configured AI providers (Gemini, Groq, OpenRouter) failed or are missing API keys.');
+}
+
+// Alias for backwards compatibility across all existing endpoints
+const callGemini = callAI;
 
 // -------------------------------------------------------------
 // AUTHENTICATION ENDPOINTS
@@ -1237,6 +1432,33 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     app: 'Nexus Intelligence (NI) Multimodal Engine',
     timestamp: new Date().toISOString()
+  });
+});
+
+// GET /api/models/providers - Returns status of configured AI providers
+app.get('/api/models/providers', (req, res) => {
+  res.json({
+    providers: [
+      {
+        id: 'gemini',
+        name: 'Google Gemini',
+        configured: !!GOOGLE_API_KEY,
+        models: ['gemini-3.5-flash', 'gemini-3.6-flash']
+      },
+      {
+        id: 'groq',
+        name: 'Groq Cloud (LPU)',
+        configured: !!GROQ_API_KEY,
+        models: ['llama-3.3-70b-versatile', 'deepseek-r1-distill-llama-70b', 'llama-3.2-11b-vision-preview']
+      },
+      {
+        id: 'openrouter',
+        name: 'OpenRouter Free Tier',
+        configured: !!OPENROUTER_API_KEY,
+        models: ['meta-llama/llama-3.3-70b-instruct:free', 'deepseek/deepseek-r1:free', 'mistralai/mistral-7b-instruct:free']
+      }
+    ],
+    defaultProvider: DEFAULT_AI_PROVIDER
   });
 });
 
