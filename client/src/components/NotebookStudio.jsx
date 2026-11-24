@@ -742,32 +742,18 @@ export function StudioResultCanvas({
           {toolId === 'slide-deck' && (
             output?.parsedData?.slides?.length > 0 ? (
               <div>
+                {/* Header without top-right buttons per user request */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
                   <div>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#d946ef' }}>
+                    <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#d946ef' }}>
                       Slide {currentSlideIndex + 1} of {output.parsedData.slides.length}
                     </span>
                     <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                       {output.parsedData.deckTitle || 'Presentation Deck'}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.35rem' }}>
-                    <button
-                      className="composer-btn-icon"
-                      style={{ width: '32px', height: '32px' }}
-                      disabled={currentSlideIndex === 0}
-                      onClick={() => setCurrentSlideIndex(prev => Math.max(0, prev - 1))}
-                    >
-                      <ChevronLeft size={16} />
-                    </button>
-                    <button
-                      className="composer-btn-icon"
-                      style={{ width: '32px', height: '32px' }}
-                      disabled={currentSlideIndex === output.parsedData.slides.length - 1}
-                      onClick={() => setCurrentSlideIndex(prev => Math.min(output.parsedData.slides.length - 1, prev + 1))}
-                    >
-                      <ChevronRight size={16} />
-                    </button>
+                  <div style={{ fontSize: '0.72rem', color: '#d946ef', background: 'rgba(217, 70, 239, 0.12)', border: '1px solid rgba(217, 70, 239, 0.25)', padding: '0.2rem 0.65rem', borderRadius: 'var(--radius-full)', fontWeight: 700 }}>
+                    Executive Keynote
                   </div>
                 </div>
 
@@ -776,90 +762,190 @@ export function StudioResultCanvas({
                   return (
                     <div style={{
                       background: 'var(--bg-surface-elevated)',
-                      border: '1.5px solid rgba(217, 70, 239, 0.3)',
+                      border: '1.5px solid rgba(217, 70, 239, 0.35)',
                       borderRadius: 'var(--radius-lg)',
-                      padding: '1.5rem',
-                      boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
-                      marginBottom: '1rem'
+                      padding: '1.75rem 2.25rem',
+                      boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
+                      marginBottom: '1rem',
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      minHeight: '340px'
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#d946ef', background: 'rgba(217, 70, 239, 0.15)', padding: '0.15rem 0.55rem', borderRadius: '9999px' }}>
-                          SLIDE {slide.slideNumber || currentSlideIndex + 1}
-                        </span>
-                        {slide.visualConcept && (
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                            <Eye size={13} style={{ color: 'var(--accent-cyan)' }} /> Visual Concept Included
+                      {/* Left and Right Side Edge Navigation Arrows directly inside slide */}
+                      {currentSlideIndex > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setCurrentSlideIndex(prev => Math.max(0, prev - 1))}
+                          className="slide-edge-nav prev"
+                          title="Previous Slide"
+                        >
+                          <ChevronLeft size={22} />
+                        </button>
+                      )}
+                      {currentSlideIndex < output.parsedData.slides.length - 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setCurrentSlideIndex(prev => Math.min(output.parsedData.slides.length - 1, prev + 1))}
+                          className="slide-edge-nav next"
+                          title="Next Slide"
+                        >
+                          <ChevronRight size={22} />
+                        </button>
+                      )}
+
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#d946ef', background: 'rgba(217, 70, 239, 0.15)', padding: '0.15rem 0.55rem', borderRadius: '9999px' }}>
+                            SLIDE {slide.slideNumber || currentSlideIndex + 1}
                           </span>
+                          {slide.visualConcept && (
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                              <Eye size={13} style={{ color: 'var(--accent-cyan)' }} /> Visual Concept Included
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--text-primary)', marginBottom: '1.15rem' }}>
+                          {slide.title}
+                        </h3>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                          {slide.bullets?.map((b, bIdx) => (
+                            <div key={bIdx} style={{ display: 'flex', gap: '0.65rem', alignItems: 'flex-start', fontSize: '0.92rem', lineHeight: 1.6 }}>
+                              <span style={{ color: '#d946ef', fontWeight: 800 }}>✦</span>
+                              <span style={{ color: 'var(--text-primary)' }}>{b}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {slide.visualConcept && (
+                          <div style={{
+                            background: 'rgba(56, 189, 248, 0.08)',
+                            border: '1px solid rgba(56, 189, 248, 0.25)',
+                            borderRadius: 'var(--radius-sm)',
+                            padding: '0.65rem 0.85rem',
+                            fontSize: '0.8rem',
+                            color: 'var(--accent-cyan)',
+                            marginBottom: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '0.45rem'
+                          }}>
+                            <Eye size={15} style={{ flexShrink: 0, marginTop: '0.1rem' }} />
+                            <div><strong>Visual Idea: </strong>{slide.visualConcept}</div>
+                          </div>
+                        )}
+
+                        {slide.speakerNotes && (
+                          <div>
+                            <button
+                              onClick={() => setShowSpeakerNotes(!showSpeakerNotes)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--text-muted)',
+                                fontSize: '0.76rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                                padding: 0
+                              }}
+                            >
+                              <Lightbulb size={13} style={{ color: '#f59e0b' }} />
+                              {showSpeakerNotes ? 'Hide Speaker Notes' : 'Show Speaker Notes'}
+                            </button>
+                            {showSpeakerNotes && (
+                              <div style={{
+                                marginTop: '0.45rem',
+                                padding: '0.75rem',
+                                background: 'rgba(255,255,255,0.04)',
+                                borderRadius: 'var(--radius-sm)',
+                                fontSize: '0.82rem',
+                                fontStyle: 'italic',
+                                color: 'var(--text-secondary)',
+                                lineHeight: 1.55
+                              }}>
+                                "{slide.speakerNotes}"
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
 
-                      <h3 style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--text-primary)', marginBottom: '1.15rem' }}>
-                        {slide.title}
-                      </h3>
+                      {/* In-Slide Previous & Next Navigation Buttons */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingTop: '1.25rem',
+                        marginTop: '1.5rem',
+                        borderTop: '1px solid rgba(217, 70, 239, 0.2)',
+                        gap: '0.75rem'
+                      }}>
+                        <button
+                          type="button"
+                          className="btn-ghost"
+                          disabled={currentSlideIndex === 0}
+                          onClick={() => setCurrentSlideIndex(prev => Math.max(0, prev - 1))}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            fontSize: '0.84rem',
+                            fontWeight: 700,
+                            padding: '0.55rem 1.15rem',
+                            borderRadius: 'var(--radius-sm)',
+                            borderColor: currentSlideIndex === 0 ? 'var(--border-subtle)' : 'rgba(217, 70, 239, 0.45)',
+                            color: currentSlideIndex === 0 ? 'var(--text-muted)' : 'var(--text-primary)',
+                            cursor: currentSlideIndex === 0 ? 'not-allowed' : 'pointer',
+                            background: currentSlideIndex === 0 ? 'transparent' : 'rgba(217, 70, 239, 0.08)'
+                          }}
+                        >
+                          <ChevronLeft size={18} />
+                          <span>Previous Slide</span>
+                        </button>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
-                        {slide.bullets?.map((b, bIdx) => (
-                          <div key={bIdx} style={{ display: 'flex', gap: '0.65rem', alignItems: 'flex-start', fontSize: '0.92rem', lineHeight: 1.6 }}>
-                            <span style={{ color: '#d946ef', fontWeight: 800 }}>✦</span>
-                            <span style={{ color: 'var(--text-primary)' }}>{b}</span>
-                          </div>
-                        ))}
+                        <div style={{
+                          fontSize: '0.78rem',
+                          fontWeight: 800,
+                          color: '#d946ef',
+                          background: 'rgba(217, 70, 239, 0.12)',
+                          padding: '0.3rem 0.85rem',
+                          borderRadius: '9999px',
+                          letterSpacing: '0.04em'
+                        }}>
+                          Slide {currentSlideIndex + 1} of {output.parsedData.slides.length}
+                        </div>
+
+                        <button
+                          type="button"
+                          className="btn-gradient"
+                          disabled={currentSlideIndex === output.parsedData.slides.length - 1}
+                          onClick={() => setCurrentSlideIndex(prev => Math.min(output.parsedData.slides.length - 1, prev + 1))}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            fontSize: '0.84rem',
+                            fontWeight: 700,
+                            padding: '0.55rem 1.25rem',
+                            borderRadius: 'var(--radius-sm)',
+                            background: currentSlideIndex === output.parsedData.slides.length - 1 ? 'var(--bg-surface)' : 'linear-gradient(135deg, #d946ef 0%, #a855f7 100%)',
+                            color: currentSlideIndex === output.parsedData.slides.length - 1 ? 'var(--text-muted)' : '#ffffff',
+                            border: currentSlideIndex === output.parsedData.slides.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                            cursor: currentSlideIndex === output.parsedData.slides.length - 1 ? 'not-allowed' : 'pointer',
+                            boxShadow: currentSlideIndex === output.parsedData.slides.length - 1 ? 'none' : '0 4px 14px rgba(217, 70, 239, 0.4)'
+                          }}
+                        >
+                          <span>Next Slide</span>
+                          <ChevronRight size={18} />
+                        </button>
                       </div>
 
-                      {slide.visualConcept && (
-                        <div style={{
-                          background: 'rgba(56, 189, 248, 0.08)',
-                          border: '1px solid rgba(56, 189, 248, 0.25)',
-                          borderRadius: 'var(--radius-sm)',
-                          padding: '0.65rem 0.85rem',
-                          fontSize: '0.8rem',
-                          color: 'var(--accent-cyan)',
-                          marginBottom: '0.85rem',
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '0.45rem'
-                        }}>
-                          <Eye size={15} style={{ flexShrink: 0, marginTop: '0.1rem' }} />
-                          <div><strong>Visual Idea: </strong>{slide.visualConcept}</div>
-                        </div>
-                      )}
-
-                      {slide.speakerNotes && (
-                        <div>
-                          <button
-                            onClick={() => setShowSpeakerNotes(!showSpeakerNotes)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: 'var(--text-muted)',
-                              fontSize: '0.76rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.35rem',
-                              padding: 0
-                            }}
-                          >
-                            <Lightbulb size={13} style={{ color: '#f59e0b' }} />
-                            {showSpeakerNotes ? 'Hide Speaker Notes' : 'Show Speaker Notes'}
-                          </button>
-                          {showSpeakerNotes && (
-                            <div style={{
-                              marginTop: '0.45rem',
-                              padding: '0.75rem',
-                              background: 'rgba(255,255,255,0.04)',
-                              borderRadius: 'var(--radius-sm)',
-                              fontSize: '0.82rem',
-                              fontStyle: 'italic',
-                              color: 'var(--text-secondary)',
-                              lineHeight: 1.55
-                            }}>
-                              "{slide.speakerNotes}"
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
                   );
                 })()}
@@ -917,53 +1003,85 @@ export function StudioResultCanvas({
 
                 {flashcardViewMode === 'single' ? (
                   <div>
-                    {/* 3D Flippable Card */}
+                    {/* True 3D Flippable Card with Spring Animation */}
                     <div 
                       onClick={() => setIsCardFlipped(!isCardFlipped)}
-                      style={{ perspective: '1000px', cursor: 'pointer', marginBottom: '1.25rem', userSelect: 'none' }}
+                      className="flashcard-3d-scene"
                     >
-                      <div style={{
-                        minHeight: '220px',
-                        borderRadius: 'var(--radius-lg)',
-                        background: isCardFlipped 
-                          ? 'linear-gradient(135deg, rgba(249, 115, 22, 0.15) 0%, rgba(245, 158, 11, 0.1) 100%)' 
-                          : 'var(--bg-surface-elevated)',
-                        border: isCardFlipped ? '2px solid #f97316' : '1px solid var(--border-subtle)',
-                        padding: '1.75rem',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                        boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
-                        transition: 'transform 0.4s ease'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{
-                            fontSize: '0.7rem',
-                            fontWeight: 800,
-                            padding: '0.15rem 0.55rem',
-                            borderRadius: '9999px',
-                            background: isCardFlipped ? '#f97316' : 'rgba(249, 115, 22, 0.15)',
-                            color: isCardFlipped ? '#fff' : '#f97316'
-                          }}>
-                            {isCardFlipped ? 'ANSWER' : 'QUESTION'}
-                          </span>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Click anywhere to flip 🔄</span>
-                        </div>
+                      <div className={`flashcard-3d-card ${isCardFlipped ? 'flipped' : ''}`}>
+                        
+                        {/* FRONT FACE (Question) */}
+                        <div className="flashcard-face flashcard-front">
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              padding: '0.2rem 0.65rem',
+                              borderRadius: '9999px',
+                              background: 'rgba(249, 115, 22, 0.15)',
+                              color: '#f97316',
+                              border: '1px solid rgba(249, 115, 22, 0.3)'
+                            }}>
+                              QUESTION
+                            </span>
+                            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <RotateCcw size={12} /> Click anywhere to flip
+                            </span>
+                          </div>
 
-                        <div style={{ margin: '1.5rem 0', textAlign: 'center' }}>
-                          <div style={{
-                            fontSize: isCardFlipped ? '1rem' : '1.15rem',
-                            fontWeight: isCardFlipped ? 500 : 700,
-                            lineHeight: 1.6,
-                            color: 'var(--text-primary)'
-                          }}>
-                            {isCardFlipped ? flashcardDeck[currentCardIndex]?.back : flashcardDeck[currentCardIndex]?.front}
+                          <div style={{ margin: '1.75rem 0', textAlign: 'center' }}>
+                            <div style={{
+                              fontSize: '1.2rem',
+                              fontWeight: 700,
+                              lineHeight: 1.6,
+                              color: 'var(--text-primary)'
+                            }}>
+                              {flashcardDeck[currentCardIndex]?.front}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                            <span>Topic: <strong style={{ color: 'var(--text-secondary)' }}>{flashcardDeck[currentCardIndex]?.category || 'Core Concept'}</strong></span>
+                            <span style={{ color: '#f97316', fontWeight: 600 }}>Click to reveal answer 🔄</span>
                           </div>
                         </div>
 
-                        <div style={{ textAlign: 'center', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                          {isCardFlipped ? 'Click card to flip back' : 'Click card to reveal answer'}
+                        {/* BACK FACE (Answer) */}
+                        <div className="flashcard-face flashcard-back">
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              padding: '0.2rem 0.65rem',
+                              borderRadius: '9999px',
+                              background: '#f97316',
+                              color: '#ffffff',
+                              boxShadow: '0 2px 8px rgba(249, 115, 22, 0.4)'
+                            }}>
+                              ANSWER
+                            </span>
+                            <span style={{ fontSize: '0.74rem', color: 'rgba(249, 115, 22, 0.85)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <RotateCcw size={12} /> Click to flip back
+                            </span>
+                          </div>
+
+                          <div style={{ margin: '1.75rem 0', textAlign: 'center' }}>
+                            <div style={{
+                              fontSize: '1.1rem',
+                              fontWeight: 500,
+                              lineHeight: 1.65,
+                              color: 'var(--text-primary)'
+                            }}>
+                              {flashcardDeck[currentCardIndex]?.back}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                            <span>Card {currentCardIndex + 1} of {flashcardDeck.length}</span>
+                            <span style={{ color: 'var(--text-secondary)' }}>Click to see question</span>
+                          </div>
                         </div>
+
                       </div>
                     </div>
 
