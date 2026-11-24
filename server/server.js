@@ -313,13 +313,15 @@ const uploadImage = multer({
 });
 
 // Candidate models for automatic failover with active Gemini API models
-const CANDIDATE_MODELS = [
+const CANDIDATE_MODELS = Array.from(new Set([
   process.env.GEMINI_MODEL || 'gemini-3.5-flash',
-  'gemini-3.5-flash',
   'gemini-3.6-flash',
   'gemini-flash-lite-latest',
   'gemini-flash-latest'
-];
+]));
+
+// Gemini rate limit cooldown tracker (skip Gemini when 429 quota is hit to failover to Groq instantly)
+let geminiCooldownUntil = 0;
 
 // YouTube URL parser & video ID extractor
 function extractYouTubeId(url) {
@@ -599,6 +601,16 @@ async function callGeminiDirect(parts, systemInstruction = '', temperature = 0.2
           console.warn(`[Gemini Fallback] Model ${model} returned ${response.status}: ${errorText.substring(0, 100)}`);
         }
         lastError = new Error(`Model ${model} failed (${response.status})`);
+        
+        // If 429 (quota exhausted on this key), all Gemini flash models share this limit.
+        // Immediately trigger 60s cooldown and break to failover to Groq instantly!
+        if (response.status === 429) {
+          geminiCooldownUntil = Date.now() + 60000;
+          if (NODE_ENV !== 'production') {
+            console.log('[Gemini Quota] Hit 429 rate limit. Instant failover to Groq/alternative engine for 60s.');
+          }
+          break;
+        }
         continue;
       }
 
@@ -632,8 +644,8 @@ async function callAI(parts, systemInstruction = '', temperature = 0.2) {
     }
   }
 
-  // Priority 1: Google Gemini
-  if (GOOGLE_API_KEY) {
+  // Priority 1: Google Gemini (if key configured and not in rate-limit cooldown)
+  if (GOOGLE_API_KEY && Date.now() >= geminiCooldownUntil) {
     try {
       return await callGeminiDirect(parts, systemInstruction, temperature);
     } catch (geminiErr) {

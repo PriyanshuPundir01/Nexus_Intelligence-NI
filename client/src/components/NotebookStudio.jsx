@@ -214,8 +214,14 @@ export default function NotebookStudio({
   const [userQuizAnswers, setUserQuizAnswers] = useState({}); // { [questionIdx]: selectedOptionIdx }
   const [quizScore, setQuizScore] = useState(0);
 
-  // Video Overview State
+  // Video Overview State & Player
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
+  const [isPlayingVideo, setIsPlayingVideo] = useState(false);
+  const [isVideoPaused, setIsVideoPaused] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [videoSpeed, setVideoSpeed] = useState(1);
+  const videoSpeechRef = useRef(null);
+  const videoProgressIntervalRef = useRef(null);
 
   // Mind Map State
   const [mindMapViewMode, setMindMapViewMode] = useState('visual'); // 'visual' | 'mermaid'
@@ -288,6 +294,112 @@ export default function NotebookStudio({
       setShowSpeakerNotes(false);
     }
   }, [studioOutputs['slide-deck']]);
+
+  // Sync video overview when generated
+  useEffect(() => {
+    if (studioOutputs['video-overview']?.parsedData?.scenes) {
+      setActiveSceneIndex(0);
+      setIsPlayingVideo(false);
+      setIsVideoPaused(false);
+      setVideoProgress(0);
+    }
+  }, [studioOutputs['video-overview']]);
+
+  // Video Overview Audio Narration Playback
+  const playSceneNarration = (sceneIdx, scenes) => {
+    if (!('speechSynthesis' in window)) {
+      alert('Speech synthesis is not supported in this browser.');
+      return;
+    }
+
+    if (sceneIdx >= scenes.length) {
+      setIsPlayingVideo(false);
+      setIsVideoPaused(false);
+      setActiveSceneIndex(0);
+      setVideoProgress(100);
+      return;
+    }
+
+    setActiveSceneIndex(sceneIdx);
+    setVideoProgress(0);
+
+    const scene = scenes[sceneIdx];
+    const textToSpeak = scene.narration || scene.sceneTitle || '';
+    if (!textToSpeak) {
+      setTimeout(() => playSceneNarration(sceneIdx + 1, scenes), 3000);
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    videoSpeechRef.current = utterance;
+    utterance.rate = videoSpeed;
+    utterance.pitch = 1.0;
+
+    const voices = window.speechSynthesis.getVoices();
+    const engVoices = voices.filter(v => v.lang.startsWith('en'));
+    if (engVoices.length > 0) {
+      utterance.voice = engVoices[0];
+    }
+
+    let pct = 0;
+    clearInterval(videoProgressIntervalRef.current);
+    videoProgressIntervalRef.current = setInterval(() => {
+      pct += 2;
+      if (pct <= 96) {
+        setVideoProgress(pct);
+      }
+    }, 120);
+
+    utterance.onend = () => {
+      clearInterval(videoProgressIntervalRef.current);
+      setVideoProgress(100);
+      setTimeout(() => {
+        playSceneNarration(sceneIdx + 1, scenes);
+      }, 500);
+    };
+
+    utterance.onerror = () => {
+      clearInterval(videoProgressIntervalRef.current);
+      setIsPlayingVideo(false);
+      setIsVideoPaused(false);
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleStartVideo = () => {
+    const scenes = studioOutputs['video-overview']?.parsedData?.scenes;
+    if (!scenes || scenes.length === 0) return;
+
+    if (isVideoPaused) {
+      window.speechSynthesis.resume();
+      setIsVideoPaused(false);
+      setIsPlayingVideo(true);
+    } else {
+      window.speechSynthesis.cancel();
+      setIsPlayingVideo(true);
+      setIsVideoPaused(false);
+      playSceneNarration(activeSceneIndex, scenes);
+    }
+  };
+
+  const handlePauseVideo = () => {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.pause();
+      setIsVideoPaused(true);
+      setIsPlayingVideo(false);
+    }
+  };
+
+  const handleStopVideo = () => {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      clearInterval(videoProgressIntervalRef.current);
+      setIsPlayingVideo(false);
+      setIsVideoPaused(false);
+      setVideoProgress(0);
+    }
+  };
 
   const handleGenerate = async (type) => {
     if (loading) return;
@@ -1123,14 +1235,15 @@ export default function NotebookStudio({
               </button>
             </div>
 
-            {/* Video Storyboard Scenes */}
+            {/* Interactive Video Player & Storyboard */}
             {currentOutput?.parsedData?.scenes && currentOutput.parsedData.scenes.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {/* Video Header & Meta */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                      {currentOutput.parsedData.videoTitle || 'Video Storyboard'}
-                    </span>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
+                      {currentOutput.parsedData.videoTitle || 'Cinematic Video Overview'}
+                    </h3>
                     <div style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 600 }}>
                       Est. Duration: {currentOutput.parsedData.estimatedDuration || '2:30'} • {currentOutput.parsedData.scenes.length} Scenes
                     </div>
@@ -1139,7 +1252,7 @@ export default function NotebookStudio({
                     <button
                       className="composer-btn-icon"
                       style={{ width: '28px', height: '28px' }}
-                      title="Copy storyboard"
+                      title="Copy storyboard script"
                       onClick={() => handleCopyContent(currentOutput.content)}
                     >
                       {copied ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
@@ -1155,83 +1268,277 @@ export default function NotebookStudio({
                   </div>
                 </div>
 
-                {currentOutput.parsedData.scenes.map((scene, scIdx) => (
-                  <div
-                    key={scIdx}
-                    style={{
+                {/* 16:9 Cinematic Video Frame */}
+                {(() => {
+                  const scenes = currentOutput.parsedData.scenes;
+                  const scene = scenes[activeSceneIndex] || scenes[0];
+
+                  return (
+                    <div style={{
+                      position: 'relative',
+                      borderRadius: 'var(--radius-lg)',
+                      overflow: 'hidden',
+                      border: '1.5px solid rgba(16, 185, 129, 0.4)',
+                      boxShadow: '0 8px 30px rgba(0, 0, 0, 0.35)',
+                      background: 'linear-gradient(135deg, #051410 0%, #062e22 50%, #031c15 100%)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      minHeight: '260px'
+                    }}>
+                      {/* Top Overlay Bar */}
+                      <div style={{
+                        padding: '0.75rem 1rem',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        background: 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)',
+                        zIndex: 2
+                      }}>
+                        <span style={{
+                          fontSize: '0.7rem',
+                          fontWeight: 800,
+                          color: '#34d399',
+                          background: 'rgba(16, 185, 129, 0.25)',
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: '9999px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.35rem'
+                        }}>
+                          <Video size={13} /> SCENE {activeSceneIndex + 1} OF {scenes.length}
+                        </span>
+                        <span style={{ fontSize: '0.7rem', color: '#cbd5e1', fontWeight: 600 }}>
+                          ⏱️ {scene.timestamp || `0:${(activeSceneIndex * 25).toString().padStart(2, '0')}`}
+                        </span>
+                      </div>
+
+                      {/* Center Visual Canvas with Scene Concept */}
+                      <div style={{
+                        padding: '1.25rem 1.5rem',
+                        textAlign: 'center',
+                        zIndex: 2,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.65rem'
+                      }}>
+                        <h4 style={{
+                          fontSize: '1.25rem',
+                          fontWeight: 900,
+                          color: '#f8fafc',
+                          textShadow: '0 2px 10px rgba(0,0,0,0.8)',
+                          lineHeight: 1.3,
+                          margin: 0
+                        }}>
+                          {scene.sceneTitle}
+                        </h4>
+
+                        {scene.visualPrompt && (
+                          <div style={{
+                            background: 'rgba(0, 0, 0, 0.65)',
+                            backdropFilter: 'blur(8px)',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '0.6rem 0.85rem',
+                            fontSize: '0.76rem',
+                            color: '#94a3b8',
+                            lineHeight: 1.45,
+                            maxWidth: '92%'
+                          }}>
+                            <strong style={{ color: '#34d399' }}>Visual Direction: </strong>
+                            {scene.visualPrompt}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Lower Third On-Screen Subtitle Banner */}
+                      {scene.onScreenText && (
+                        <div style={{
+                          margin: '0 1rem 0.65rem 1rem',
+                          padding: '0.45rem 0.85rem',
+                          borderRadius: '6px',
+                          background: 'rgba(6, 182, 212, 0.2)',
+                          backdropFilter: 'blur(6px)',
+                          border: '1px solid rgba(6, 182, 212, 0.4)',
+                          color: '#67e8f9',
+                          fontSize: '0.82rem',
+                          fontWeight: 800,
+                          textAlign: 'center',
+                          zIndex: 2
+                        }}>
+                          📺 "{scene.onScreenText}"
+                        </div>
+                      )}
+
+                      {/* Progress Line */}
+                      <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', position: 'relative' }}>
+                        <div style={{
+                          height: '100%',
+                          background: 'linear-gradient(90deg, #10b981 0%, #34d399 100%)',
+                          width: isPlayingVideo ? `${videoProgress}%` : `${((activeSceneIndex + 1) / scenes.length) * 100}%`,
+                          transition: 'width 0.15s ease'
+                        }} />
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Video Playback Controls Bar */}
+                {(() => {
+                  const scenes = currentOutput.parsedData.scenes;
+                  return (
+                    <div style={{
                       background: 'var(--bg-surface-elevated)',
                       border: '1px solid var(--border-subtle)',
                       borderRadius: 'var(--radius-md)',
-                      padding: '1rem',
-                      position: 'relative'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
-                        SCENE {scene.sceneNumber || scIdx + 1}
-                      </span>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                        {scene.timestamp || `0:${(scIdx * 25).toString().padStart(2, '0')}`}
-                      </span>
-                    </div>
+                      padding: '0.85rem 1rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.65rem'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <Volume2 size={15} /> 
+                          {isPlayingVideo 
+                            ? `Playing & Narrating Scene ${activeSceneIndex + 1} of ${scenes.length}...` 
+                            : isVideoPaused 
+                              ? 'Video Paused' 
+                              : 'Cinematic Voiceover Ready'}
+                        </span>
 
-                    <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.65rem' }}>
-                      {scene.sceneTitle}
-                    </h4>
-
-                    {/* Camera / Visual Prompt */}
-                    {scene.visualPrompt && (
-                      <div style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        borderRadius: 'var(--radius-sm)',
-                        padding: '0.6rem 0.75rem',
-                        marginBottom: '0.55rem',
-                        fontSize: '0.78rem',
-                        lineHeight: 1.5,
-                        color: 'var(--text-secondary)',
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: '0.45rem'
-                      }}>
-                        <Video size={14} style={{ color: '#10b981', flexShrink: 0, marginTop: '0.1rem' }} />
-                        <div>
-                          <strong style={{ color: '#10b981' }}>Visual Direction: </strong>
-                          {scene.visualPrompt}
+                        {/* Speed Toggle */}
+                        <div style={{ display: 'flex', gap: '0.2rem' }}>
+                          {[1, 1.25, 1.5].map(s => (
+                            <button
+                              key={s}
+                              onClick={() => setVideoSpeed(s)}
+                              style={{
+                                fontSize: '0.68rem',
+                                padding: '0.1rem 0.35rem',
+                                borderRadius: '4px',
+                                border: videoSpeed === s ? '1px solid #10b981' : '1px solid var(--border-subtle)',
+                                background: videoSpeed === s ? '#10b981' : 'transparent',
+                                color: '#fff',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {s}x
+                            </button>
+                          ))}
                         </div>
                       </div>
-                    )}
 
-                    {/* On-Screen Text */}
-                    {scene.onScreenText && (
-                      <div style={{
-                        fontSize: '0.75rem',
-                        color: 'var(--accent-cyan)',
-                        fontWeight: 700,
-                        padding: '0.35rem 0.65rem',
-                        background: 'rgba(6, 182, 212, 0.1)',
-                        borderRadius: '4px',
-                        marginBottom: '0.55rem',
-                        display: 'inline-block'
-                      }}>
-                        📺 Text on screen: "{scene.onScreenText}"
-                      </div>
-                    )}
+                      {/* Control Buttons */}
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <button
+                          className="composer-btn-icon"
+                          style={{ width: '32px', height: '32px' }}
+                          disabled={activeSceneIndex === 0}
+                          onClick={() => {
+                            if (window.speechSynthesis) window.speechSynthesis.cancel();
+                            setIsPlayingVideo(false);
+                            setActiveSceneIndex(prev => Math.max(0, prev - 1));
+                          }}
+                          title="Previous Scene"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
 
-                    {/* Voiceover script */}
-                    {scene.narration && (
-                      <div style={{
-                        borderLeft: '2px solid #10b981',
-                        paddingLeft: '0.65rem',
-                        fontSize: '0.82rem',
-                        color: 'var(--text-primary)',
-                        fontStyle: 'italic',
-                        lineHeight: 1.5
-                      }}>
-                        🎙️ "{scene.narration}"
+                        {!isPlayingVideo ? (
+                          <button
+                            className="btn-gradient"
+                            style={{ flex: 1, fontSize: '0.82rem', justifyContent: 'center', padding: '0.5rem', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+                            onClick={handleStartVideo}
+                          >
+                            <Play size={16} /> {isVideoPaused ? 'Resume Video' : 'Play Video Overview'}
+                          </button>
+                        ) : (
+                          <button
+                            className="btn-ghost"
+                            style={{ flex: 1, fontSize: '0.82rem', justifyContent: 'center', padding: '0.5rem', borderColor: '#f59e0b', color: '#f59e0b' }}
+                            onClick={handlePauseVideo}
+                          >
+                            <Pause size={16} /> Pause Video
+                          </button>
+                        )}
+
+                        <button
+                          className="btn-ghost"
+                          style={{ width: '36px', height: '36px', justifyContent: 'center', padding: 0 }}
+                          onClick={handleStopVideo}
+                          title="Stop Video"
+                        >
+                          <Square size={14} />
+                        </button>
+
+                        <button
+                          className="composer-btn-icon"
+                          style={{ width: '32px', height: '32px' }}
+                          disabled={activeSceneIndex === scenes.length - 1}
+                          onClick={() => {
+                            if (window.speechSynthesis) window.speechSynthesis.cancel();
+                            setIsPlayingVideo(false);
+                            setActiveSceneIndex(prev => Math.min(scenes.length - 1, prev + 1));
+                          }}
+                          title="Next Scene"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {/* Scene Selector Scrubber Chips */}
+                      <div style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', paddingTop: '0.2rem' }}>
+                        {scenes.map((sc, scIdx) => (
+                          <button
+                            key={scIdx}
+                            onClick={() => {
+                              if (window.speechSynthesis) window.speechSynthesis.cancel();
+                              setIsPlayingVideo(false);
+                              setActiveSceneIndex(scIdx);
+                            }}
+                            style={{
+                              padding: '0.25rem 0.55rem',
+                              borderRadius: '4px',
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              whiteSpace: 'nowrap',
+                              cursor: 'pointer',
+                              border: activeSceneIndex === scIdx ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                              background: activeSceneIndex === scIdx ? 'rgba(16, 185, 129, 0.2)' : 'var(--bg-app)',
+                              color: activeSceneIndex === scIdx ? '#34d399' : 'var(--text-secondary)'
+                            }}
+                          >
+                            Scene {scIdx + 1}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Spoken Voiceover Narration Transcript of Active Scene */}
+                {(() => {
+                  const scenes = currentOutput.parsedData.scenes;
+                  const scene = scenes[activeSceneIndex] || scenes[0];
+                  return (
+                    <div style={{
+                      background: 'var(--bg-surface-elevated)',
+                      border: '1px solid var(--border-subtle)',
+                      borderLeft: '3px solid #10b981',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '0.85rem 1rem'
+                    }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#10b981', textTransform: 'uppercase', marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <Volume2 size={13} /> Active Scene Narration Script
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontStyle: 'italic', lineHeight: 1.6 }}>
+                        "{scene.narration || scene.sceneTitle}"
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             ) : currentOutput ? (
               <div style={{ background: 'var(--bg-surface-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
