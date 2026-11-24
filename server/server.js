@@ -458,7 +458,7 @@ async function callGroq(parts, systemInstruction = '', temperature = 0.2) {
   const hasImage = Array.isArray(parts) && parts.some(p => p.inlineData);
   const models = hasImage 
     ? ['llama-3.2-11b-vision-preview', 'llama-3.2-90b-vision-preview']
-    : ['llama-3.3-70b-versatile', 'deepseek-r1-distill-llama-70b', 'llama-3.1-8b-instant'];
+    : ['qwen/qwen3.8-27b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
 
   let lastErr = null;
   for (const model of models) {
@@ -1449,7 +1449,7 @@ app.get('/api/models/providers', (req, res) => {
         id: 'groq',
         name: 'Groq Cloud (LPU)',
         configured: !!GROQ_API_KEY,
-        models: ['llama-3.3-70b-versatile', 'deepseek-r1-distill-llama-70b', 'llama-3.2-11b-vision-preview']
+        models: ['qwen/qwen3.8-27b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'llama-3.3-70b-versatile']
       },
       {
         id: 'openrouter',
