@@ -13,10 +13,14 @@ import {
   ExternalLink,
   BookOpen,
   Plus,
-  Check
+  Check,
+  ChevronLeft
 } from 'lucide-react';
 
 export default function SourcesDrawer({ 
+  width = 280,
+  isCollapsed = false,
+  onToggleCollapse,
   sources = [], 
   selectedSourceIds = [],
   onToggleSelectSource,
@@ -28,8 +32,19 @@ export default function SourcesDrawer({
 }) {
   const [expandedId, setExpandedId] = useState(null);
 
+  if (isCollapsed) return null;
+
   return (
-    <aside className="sources-sidebar">
+    <aside 
+      className="sources-sidebar"
+      style={{
+        width: `${width}px`,
+        minWidth: `${width}px`,
+        maxWidth: `${width}px`,
+        flexShrink: 0,
+        position: 'relative'
+      }}
+    >
       {/* Sidebar Header */}
       <div className="sources-sidebar-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -49,6 +64,16 @@ export default function SourcesDrawer({
           <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', background: 'var(--bg-app)', padding: '0.2rem 0.5rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-subtle)' }}>
             {sources.length} Total
           </span>
+          {onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              className="composer-btn-icon"
+              style={{ width: '24px', height: '24px' }}
+              title="Collapse Sources Panel"
+            >
+              <ChevronLeft size={14} />
+            </button>
+          )}
         </div>
       </div>
 

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Headphones, 
   Radio,
-  Video, 
   FileText, 
   HelpCircle, 
   Presentation, 
@@ -14,8 +13,6 @@ import {
   Play, 
   Pause, 
   Square, 
-  Maximize2, 
-  Minimize2, 
   ChevronLeft, 
   ChevronRight, 
   Check, 
@@ -24,7 +21,6 @@ import {
   CheckCircle2, 
   XCircle, 
   Info, 
-  TrendingUp, 
   Award, 
   Download, 
   StickyNote, 
@@ -34,12 +30,13 @@ import {
   Volume2, 
   Eye, 
   Lightbulb, 
-  Share2,
   Copy,
-  MessageSquare
+  MessageSquare,
+  ArrowRight,
+  Maximize2
 } from 'lucide-react';
 
-function escapeHtml(unsafe) {
+export function escapeHtml(unsafe) {
   if (!unsafe) return '';
   return String(unsafe)
     .replace(/&/g, '&amp;')
@@ -49,7 +46,7 @@ function escapeHtml(unsafe) {
     .replace(/'/g, '&#039;');
 }
 
-function StudioMarkdownViewer({ text }) {
+export function StudioMarkdownViewer({ text }) {
   if (!text) return null;
   const lines = text.split('\n');
   const elements = [];
@@ -110,8 +107,8 @@ function StudioMarkdownViewer({ text }) {
   return <div style={{ wordBreak: 'break-word' }}>{elements}</div>;
 }
 
-// 8 Official Studio Tools matching NotebookLM
-const STUDIO_TOOLS = [
+// 7 Official Active Studio Tools (Video Overview removed per user request)
+export const STUDIO_TOOLS = [
   {
     id: 'audio-overview',
     label: 'Audio Overview',
@@ -125,13 +122,6 @@ const STUDIO_TOOLS = [
     icon: Presentation,
     color: '#d946ef',
     description: 'Executive presentation deck with bullet points, visual ideas & speaker notes.'
-  },
-  {
-    id: 'video-overview',
-    label: 'Video Overview',
-    icon: Video,
-    color: '#10b981',
-    description: 'Cinematic video storyboard with camera angles and narration script.'
   },
   {
     id: 'mind-map',
@@ -171,42 +161,337 @@ const STUDIO_TOOLS = [
   }
 ];
 
-export default function NotebookStudio({ 
-  isOpen, 
-  onClose, 
-  sources = [], 
-  selectedSourceIds = [], 
-  token = '', 
-  guestSessionId = '',
+// ---------------------------------------------------------------------------
+// 1. RIGHT SLIDING PANEL: STUDIO OPTIONS DRAWER
+// ---------------------------------------------------------------------------
+export function StudioOptionsDrawer({
+  width = 320,
+  isOpen = true,
+  onClose,
+  activeTool = 'slide-deck',
+  onSelectTool,
+  onGenerate,
+  loading = false,
+  sources = [],
+  selectedSourceIds = [],
+  studioOutputs = {},
   notes = [],
   onAddNote,
   onDeleteNote,
-  activeTab: externalActiveTab,
-  onTabChange,
-  onBackToChat
+  onOpenResultInCenter
 }) {
-  const [internalActiveTab, setInternalActiveTab] = useState('audio-overview');
-  const activeTab = externalActiveTab || internalActiveTab;
-  const setActiveTab = (tab) => {
-    setInternalActiveTab(tab);
-    if (onTabChange) onTabChange(tab);
-  };
-  const [loading, setLoading] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [studioOutputs, setStudioOutputs] = useState({
-    'audio-overview': null,
-    'slide-deck': null,
-    'video-overview': null,
-    'mind-map': null,
-    'reports': null,
-    'flashcards': null,
-    'quiz': null,
-    'infographic': null
-  });
-
-  const [copied, setCopied] = useState(false);
-  const [newNoteInput, setNewNoteInput] = useState('');
+  const [activeTab, setActiveTab] = useState(activeTool);
   const [newNoteTitle, setNewNoteTitle] = useState('');
+  const [newNoteInput, setNewNoteInput] = useState('');
+
+  useEffect(() => {
+    if (activeTool) setActiveTab(activeTool);
+  }, [activeTool]);
+
+  const selectedCount = selectedSourceIds.length;
+  const activeSourcesText = selectedCount > 0 
+    ? `${selectedCount} of ${sources.length} sources selected`
+    : `All ${sources.length} sources active`;
+
+  const currentToolMeta = STUDIO_TOOLS.find(t => t.id === activeTab) || STUDIO_TOOLS[1];
+  const hasResult = !!studioOutputs[activeTab];
+
+  const handleToolClick = (toolId) => {
+    setActiveTab(toolId);
+    if (onSelectTool) onSelectTool(toolId);
+  };
+
+  const handleCreateNote = (e) => {
+    e.preventDefault();
+    if (!newNoteInput.trim()) return;
+    onAddNote({
+      id: `note_${Date.now()}`,
+      title: newNoteTitle.trim() || 'Quick Note',
+      content: newNoteInput.trim(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    });
+    setNewNoteInput('');
+    setNewNoteTitle('');
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <aside style={{
+      width: `${width}px`,
+      background: 'var(--bg-surface)',
+      borderLeft: '1px solid var(--border-subtle)',
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
+      position: 'relative',
+      zIndex: 20,
+      flexShrink: 0
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '0.85rem 1.1rem',
+        borderBottom: '1px solid var(--border-subtle)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        background: 'var(--bg-surface-elevated)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+          <div style={{
+            width: '28px',
+            height: '28px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--accent-gradient)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff'
+          }}>
+            <Sparkles size={14} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              Studio Tools
+            </div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+              {activeSourcesText}
+            </div>
+          </div>
+        </div>
+
+        <button 
+          onClick={onClose}
+          className="composer-btn-icon"
+          style={{ width: '26px', height: '26px' }}
+          title="Close Studio Options Drawer"
+        >
+          <X size={15} />
+        </button>
+      </div>
+
+      {/* Main Options Scrollable Body */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0.85rem' }}>
+        
+        {/* Empty Sources Notice */}
+        {sources.length === 0 && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '0.65rem 0.75rem',
+            marginBottom: '0.75rem',
+            fontSize: '0.74rem',
+            color: 'var(--text-secondary)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.45rem'
+          }}>
+            <Info size={14} style={{ color: '#ef4444', flexShrink: 0 }} />
+            <span>Add at least 1 source on the left to activate studio tools.</span>
+          </div>
+        )}
+
+        {/* 7 Tools Buttons List */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '1rem' }}>
+          {STUDIO_TOOLS.map(tool => {
+            const Icon = tool.icon;
+            const isSelected = activeTab === tool.id;
+            const isGenerated = !!studioOutputs[tool.id];
+
+            return (
+              <button
+                key={tool.id}
+                onClick={() => handleToolClick(tool.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.55rem',
+                  padding: '0.55rem 0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: isSelected ? `1.5px solid ${tool.color}` : '1px solid var(--border-subtle)',
+                  background: isSelected ? `${tool.color}18` : 'var(--bg-surface-elevated)',
+                  color: 'var(--text-primary)',
+                  fontWeight: isSelected ? 700 : 500,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s ease',
+                  position: 'relative'
+                }}
+              >
+                <div style={{ color: tool.color, display: 'flex', alignItems: 'center' }}>
+                  <Icon size={16} />
+                </div>
+                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {tool.label}
+                </span>
+
+                {isGenerated && (
+                  <span style={{ fontSize: '0.62rem', background: '#10b981', color: '#fff', padding: '0.05rem 0.35rem', borderRadius: '4px', fontWeight: 800 }}>
+                    Ready
+                  </span>
+                )}
+
+                {tool.badge && !isGenerated && (
+                  <span style={{ fontSize: '0.62rem', background: 'rgba(236, 72, 153, 0.2)', color: '#ec4899', padding: '0.05rem 0.35rem', borderRadius: '4px', fontWeight: 800 }}>
+                    {tool.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+
+          {/* Notes Option Button */}
+          <button
+            onClick={() => handleToolClick('notes')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.55rem',
+              padding: '0.55rem 0.75rem',
+              borderRadius: 'var(--radius-sm)',
+              border: activeTab === 'notes' ? '1.5px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
+              background: activeTab === 'notes' ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-surface-elevated)',
+              color: 'var(--text-primary)',
+              fontWeight: activeTab === 'notes' ? 700 : 500,
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              textAlign: 'left'
+            }}
+          >
+            <StickyNote size={15} style={{ color: 'var(--accent-primary)' }} />
+            <span style={{ flex: 1 }}>Notes & Scratchpad</span>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>({notes.length})</span>
+          </button>
+        </div>
+
+        {/* Selected Tool Details & Trigger Card */}
+        {activeTab !== 'notes' ? (
+          <div style={{
+            background: 'var(--bg-app)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-md)',
+            padding: '0.85rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.35rem' }}>
+              <currentToolMeta.icon size={16} style={{ color: currentToolMeta.color }} />
+              <span style={{ fontSize: '0.84rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                {currentToolMeta.label}
+              </span>
+            </div>
+
+            <p style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', lineHeight: 1.45, marginBottom: '0.75rem' }}>
+              {currentToolMeta.description}
+            </p>
+
+            <button
+              className="btn-gradient"
+              style={{ width: '100%', fontSize: '0.78rem', justifyContent: 'center', padding: '0.45rem', marginBottom: '0.55rem' }}
+              disabled={loading || sources.length === 0}
+              onClick={() => onGenerate(activeTab)}
+            >
+              {loading ? (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <RefreshCw size={13} className="spin-animate" /> Generating with Groq (~1s)...
+                </span>
+              ) : (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Sparkles size={13} /> {hasResult ? `Regenerate ${currentToolMeta.label}` : `Generate ${currentToolMeta.label}`}
+                </span>
+              )}
+            </button>
+
+            {hasResult && (
+              <button
+                onClick={onOpenResultInCenter}
+                className="btn-ghost"
+                style={{ width: '100%', fontSize: '0.75rem', justifyContent: 'center', padding: '0.35rem', gap: '0.35rem', color: '#10b981', borderColor: '#10b981' }}
+              >
+                <span>View Result in Center Stage</span>
+                <ArrowRight size={13} />
+              </button>
+            )}
+          </div>
+        ) : (
+          /* Notes Creator in Right Panel */
+          <div>
+            <form onSubmit={handleCreateNote} style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.75rem' }}>
+              <input
+                type="text"
+                placeholder="Note Title..."
+                value={newNoteTitle}
+                onChange={e => setNewNoteTitle(e.target.value)}
+                style={{
+                  background: 'var(--bg-app)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '0.35rem 0.55rem',
+                  fontSize: '0.76rem',
+                  color: 'var(--text-primary)'
+                }}
+              />
+              <textarea
+                placeholder="Write a thought or finding..."
+                rows={2}
+                value={newNoteInput}
+                onChange={e => setNewNoteInput(e.target.value)}
+                style={{
+                  background: 'var(--bg-app)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '0.35rem 0.55rem',
+                  fontSize: '0.76rem',
+                  color: 'var(--text-primary)',
+                  resize: 'vertical'
+                }}
+              />
+              <button
+                type="submit"
+                className="btn-gradient"
+                style={{ fontSize: '0.74rem', padding: '0.35rem', justifyContent: 'center' }}
+                disabled={!newNoteInput.trim()}
+              >
+                <Plus size={13} /> Add Note
+              </button>
+            </form>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+              {notes.map(n => (
+                <div key={n.id} style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '0.55rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
+                    <span style={{ fontSize: '0.76rem', fontWeight: 700 }}>{n.title}</span>
+                    <button onClick={() => onDeleteNote(n.id)} className="composer-btn-icon" style={{ width: '20px', height: '20px', color: '#ef4444' }}>
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>
+                    {n.content}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </div>
+    </aside>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 2. CENTER STAGE: STUDIO RESULT CANVAS (OPENS IN CENTER ABOVE SEARCH BAR)
+// ---------------------------------------------------------------------------
+export function StudioResultCanvas({
+  toolId = 'slide-deck',
+  output = null,
+  sources = [],
+  onBackToChat,
+  onSaveNote,
+  onRegenerate,
+  loading = false
+}) {
+  const [copied, setCopied] = useState(false);
 
   // Slide Deck State
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -216,24 +501,15 @@ export default function NotebookStudio({
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isCardFlipped, setIsCardFlipped] = useState(false);
   const [flashcardDeck, setFlashcardDeck] = useState([]);
-  const [flashcardViewMode, setFlashcardViewMode] = useState('single'); // 'single' | 'grid'
+  const [flashcardViewMode, setFlashcardViewMode] = useState('single');
 
   // Quiz State
   const [currentQuizQuestionIndex, setCurrentQuizQuestionIndex] = useState(0);
-  const [userQuizAnswers, setUserQuizAnswers] = useState({}); // { [questionIdx]: selectedOptionIdx }
+  const [userQuizAnswers, setUserQuizAnswers] = useState({});
   const [quizScore, setQuizScore] = useState(0);
 
-  // Video Overview State & Player
-  const [activeSceneIndex, setActiveSceneIndex] = useState(0);
-  const [isPlayingVideo, setIsPlayingVideo] = useState(false);
-  const [isVideoPaused, setIsVideoPaused] = useState(false);
-  const [videoProgress, setVideoProgress] = useState(0);
-  const [videoSpeed, setVideoSpeed] = useState(1);
-  const videoSpeechRef = useRef(null);
-  const videoProgressIntervalRef = useRef(null);
-
   // Mind Map State
-  const [mindMapViewMode, setMindMapViewMode] = useState('visual'); // 'visual' | 'mermaid'
+  const [mindMapViewMode, setMindMapViewMode] = useState('visual');
 
   // Audio Playback State for Audio Overview
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -242,12 +518,23 @@ export default function NotebookStudio({
   const [audioSpeed, setAudioSpeed] = useState(1);
   const speechUtteranceRef = useRef(null);
 
-  const selectedCount = selectedSourceIds.length;
-  const activeSourcesText = selectedCount > 0 
-    ? `${selectedCount} of ${sources.length} sources selected`
-    : `All ${sources.length} sources active`;
+  // Sync state when output changes
+  useEffect(() => {
+    if (toolId === 'flashcards' && output?.parsedData?.cards) {
+      setFlashcardDeck(output.parsedData.cards);
+      setCurrentCardIndex(0);
+      setIsCardFlipped(false);
+    } else if (toolId === 'quiz' && output?.parsedData?.questions) {
+      setCurrentQuizQuestionIndex(0);
+      setUserQuizAnswers({});
+      setQuizScore(0);
+    } else if (toolId === 'slide-deck' && output?.parsedData?.slides) {
+      setCurrentSlideIndex(0);
+      setShowSpeakerNotes(false);
+    }
+  }, [toolId, output]);
 
-  // Parse podcast/audio dialogue into turns
+  // Audio turns
   const getAudioTurns = (content) => {
     if (!content) return [];
     const lines = content.split('\n').filter(l => l.trim().length > 0);
@@ -267,203 +554,17 @@ export default function NotebookStudio({
     return turns;
   };
 
-  const audioTurns = studioOutputs['audio-overview'] ? getAudioTurns(studioOutputs['audio-overview'].content) : [];
+  const audioTurns = toolId === 'audio-overview' && output ? getAudioTurns(output.content) : [];
 
-  // Stop audio on unmount or tab switch
-  useEffect(() => {
-    return () => {
-      if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, []);
-
-  // Sync flashcards when generated
-  useEffect(() => {
-    if (studioOutputs['flashcards']?.parsedData?.cards) {
-      setFlashcardDeck(studioOutputs['flashcards'].parsedData.cards);
-      setCurrentCardIndex(0);
-      setIsCardFlipped(false);
-    }
-  }, [studioOutputs['flashcards']]);
-
-  // Sync quiz questions when generated
-  useEffect(() => {
-    if (studioOutputs['quiz']?.parsedData?.questions) {
-      setCurrentQuizQuestionIndex(0);
-      setUserQuizAnswers({});
-      setQuizScore(0);
-    }
-  }, [studioOutputs['quiz']]);
-
-  // Sync slide deck when generated
-  useEffect(() => {
-    if (studioOutputs['slide-deck']?.parsedData?.slides) {
-      setCurrentSlideIndex(0);
-      setShowSpeakerNotes(false);
-    }
-  }, [studioOutputs['slide-deck']]);
-
-  // Sync video overview when generated
-  useEffect(() => {
-    if (studioOutputs['video-overview']?.parsedData?.scenes) {
-      setActiveSceneIndex(0);
-      setIsPlayingVideo(false);
-      setIsVideoPaused(false);
-      setVideoProgress(0);
-    }
-  }, [studioOutputs['video-overview']]);
-
-  // Video Overview Audio Narration Playback
-  const playSceneNarration = (sceneIdx, scenes) => {
-    if (!('speechSynthesis' in window)) {
-      alert('Speech synthesis is not supported in this browser.');
-      return;
-    }
-
-    if (sceneIdx >= scenes.length) {
-      setIsPlayingVideo(false);
-      setIsVideoPaused(false);
-      setActiveSceneIndex(0);
-      setVideoProgress(100);
-      return;
-    }
-
-    setActiveSceneIndex(sceneIdx);
-    setVideoProgress(0);
-
-    const scene = scenes[sceneIdx];
-    const textToSpeak = scene.narration || scene.sceneTitle || '';
-    if (!textToSpeak) {
-      setTimeout(() => playSceneNarration(sceneIdx + 1, scenes), 3000);
-      return;
-    }
-
-    const utterance = new SpeechSynthesisUtterance(textToSpeak);
-    videoSpeechRef.current = utterance;
-    utterance.rate = videoSpeed;
-    utterance.pitch = 1.0;
-
-    const voices = window.speechSynthesis.getVoices();
-    const engVoices = voices.filter(v => v.lang.startsWith('en'));
-    if (engVoices.length > 0) {
-      utterance.voice = engVoices[0];
-    }
-
-    let pct = 0;
-    clearInterval(videoProgressIntervalRef.current);
-    videoProgressIntervalRef.current = setInterval(() => {
-      pct += 2;
-      if (pct <= 96) {
-        setVideoProgress(pct);
-      }
-    }, 120);
-
-    utterance.onend = () => {
-      clearInterval(videoProgressIntervalRef.current);
-      setVideoProgress(100);
-      setTimeout(() => {
-        playSceneNarration(sceneIdx + 1, scenes);
-      }, 500);
-    };
-
-    utterance.onerror = () => {
-      clearInterval(videoProgressIntervalRef.current);
-      setIsPlayingVideo(false);
-      setIsVideoPaused(false);
-    };
-
-    window.speechSynthesis.speak(utterance);
+  const handleCopy = (text) => {
+    navigator.clipboard.writeText(typeof text === 'string' ? text : JSON.stringify(text, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleStartVideo = () => {
-    const scenes = studioOutputs['video-overview']?.parsedData?.scenes;
-    if (!scenes || scenes.length === 0) return;
-
-    if (isVideoPaused) {
-      window.speechSynthesis.resume();
-      setIsVideoPaused(false);
-      setIsPlayingVideo(true);
-    } else {
-      window.speechSynthesis.cancel();
-      setIsPlayingVideo(true);
-      setIsVideoPaused(false);
-      playSceneNarration(activeSceneIndex, scenes);
-    }
-  };
-
-  const handlePauseVideo = () => {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.pause();
-      setIsVideoPaused(true);
-      setIsPlayingVideo(false);
-    }
-  };
-
-  const handleStopVideo = () => {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      clearInterval(videoProgressIntervalRef.current);
-      setIsPlayingVideo(false);
-      setIsVideoPaused(false);
-      setVideoProgress(0);
-    }
-  };
-
-  const handleGenerate = async (type) => {
-    if (loading) return;
-    setLoading(true);
-
-    if (type === 'audio-overview' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      setIsPlayingAudio(false);
-      setIsPausedAudio(false);
-      setCurrentSpeakerTurn(-1);
-    }
-
-    try {
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      } else if (guestSessionId) {
-        headers['X-Guest-Session'] = guestSessionId;
-      }
-
-      const res = await fetch('/api/studio/generate', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          type,
-          selectedSourceIds: selectedSourceIds.length > 0 ? selectedSourceIds : undefined
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to generate studio artifact');
-
-      setStudioOutputs(prev => ({
-        ...prev,
-        [type]: {
-          content: data.content,
-          parsedData: data.parsedData,
-          timestamp: data.timestamp,
-          sourceCount: data.sourceCount
-        }
-      }));
-    } catch (err) {
-      alert(`Notebook Studio Error: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Web Speech API Voice synthesis for Audio Overview
+  // Web Speech for Audio Overview
   const playSpeakerTurn = (index, parsedTurns) => {
-    if (!('speechSynthesis' in window)) {
-      alert('Web Speech API is not supported in this browser.');
-      return;
-    }
-
+    if (!('speechSynthesis' in window)) return;
     if (index >= parsedTurns.length) {
       setIsPlayingAudio(false);
       setIsPausedAudio(false);
@@ -478,7 +579,6 @@ export default function NotebookStudio({
 
     const voices = window.speechSynthesis.getVoices();
     const isAlex = turn.speaker === 'Alex';
-
     utterance.rate = audioSpeed;
     utterance.pitch = isAlex ? 0.95 : 1.15;
 
@@ -489,10 +589,7 @@ export default function NotebookStudio({
       }
     }
 
-    utterance.onend = () => {
-      playSpeakerTurn(index + 1, parsedTurns);
-    };
-
+    utterance.onend = () => playSpeakerTurn(index + 1, parsedTurns);
     utterance.onerror = () => {
       setIsPlayingAudio(false);
       setCurrentSpeakerTurn(-1);
@@ -532,618 +629,210 @@ export default function NotebookStudio({
     }
   };
 
-  const handleCopyContent = (text) => {
-    navigator.clipboard.writeText(typeof text === 'string' ? text : JSON.stringify(text, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleSaveToNotesCurrent = (title, content) => {
-    const formatted = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
-    onAddNote({
-      id: `note_${Date.now()}`,
-      title: title || 'Notebook Studio Artifact',
-      content: formatted,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    });
-    alert('Saved to your Research Notes!');
-  };
-
-  const handleCreateManualNote = (e) => {
-    e.preventDefault();
-    if (!newNoteInput.trim()) return;
-    onAddNote({
-      id: `note_${Date.now()}`,
-      title: newNoteTitle.trim() || 'Quick Note',
-      content: newNoteInput.trim(),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    });
-    setNewNoteInput('');
-    setNewNoteTitle('');
-  };
-
-  const handleExportNotes = () => {
-    if (notes.length === 0) return;
-    const markdown = `# Nexus Intelligence (NI) Research Notes\n\n` + 
-      notes.map(n => `### ${n.title} (${n.timestamp})\n\n${n.content}\n\n---`).join('\n\n');
-    
-    const blob = new Blob([markdown], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `NI-Notes-${new Date().toISOString().slice(0, 10)}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Flashcard Helpers
+  // Flashcards Shuffle
   const handleShuffleDeck = () => {
     if (!flashcardDeck.length) return;
-    const shuffled = [...flashcardDeck].sort(() => Math.random() - 0.5);
-    setFlashcardDeck(shuffled);
+    setFlashcardDeck([...flashcardDeck].sort(() => Math.random() - 0.5));
     setCurrentCardIndex(0);
     setIsCardFlipped(false);
   };
 
-  // Quiz Answer Handler
-  const handleSelectQuizOption = (questionIdx, optionIdx, correctIdx) => {
-    if (userQuizAnswers[questionIdx] !== undefined) return; // already answered
-    const isCorrect = optionIdx === correctIdx;
-    setUserQuizAnswers(prev => ({ ...prev, [questionIdx]: optionIdx }));
-    if (isCorrect) {
-      setQuizScore(prev => prev + 1);
-    }
+  // Quiz Option Click
+  const handleSelectQuizOption = (qIdx, optIdx, correctIdx) => {
+    if (userQuizAnswers[qIdx] !== undefined) return;
+    setUserQuizAnswers(prev => ({ ...prev, [qIdx]: optIdx }));
+    if (optIdx === correctIdx) setQuizScore(prev => prev + 1);
   };
 
-  const handleResetQuiz = () => {
-    setUserQuizAnswers({});
-    setCurrentQuizQuestionIndex(0);
-    setQuizScore(0);
-  };
+  const currentToolMeta = STUDIO_TOOLS.find(t => t.id === toolId) || STUDIO_TOOLS[1];
 
-  if (!isOpen) return null;
-
-  const currentToolMeta = STUDIO_TOOLS.find(t => t.id === activeTab) || STUDIO_TOOLS[0];
-  const currentOutput = studioOutputs[activeTab];
+  if (!output) {
+    return (
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center' }}>
+        <div>
+          <Sparkles size={36} style={{ color: 'var(--accent-primary)', opacity: 0.5, marginBottom: '0.75rem' }} />
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            No result generated yet for {currentToolMeta.label}
+          </h3>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.35rem', marginBottom: '1rem' }}>
+            Click Generate in the right Studio panel or click below to synthesize this artifact.
+          </p>
+          <button
+            onClick={onRegenerate}
+            className="btn-gradient"
+            disabled={loading}
+            style={{ fontSize: '0.82rem', padding: '0.5rem 1rem' }}
+          >
+            {loading ? 'Generating with Groq (~1s)...' : `Generate ${currentToolMeta.label}`}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="studio-center-workspace" style={{
+    <div style={{
       flex: 1,
       display: 'flex',
       flexDirection: 'column',
       height: '100%',
-      width: '100%',
       overflow: 'hidden',
-      position: 'relative',
       background: 'transparent'
     }}>
-      {/* Studio Header */}
+      {/* Top Banner on Center Result */}
       <div style={{
-        padding: '0.85rem 1.5rem',
+        padding: '0.65rem 1.25rem',
         borderBottom: '1px solid var(--border-subtle)',
+        background: 'var(--bg-surface-elevated)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        background: 'var(--bg-surface-elevated)',
         flexShrink: 0
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--accent-gradient)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            boxShadow: '0 2px 8px rgba(99, 102, 241, 0.4)'
-          }}>
-            <Sparkles size={16} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              Notebook Studio
-              <span style={{ fontSize: '0.68rem', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--accent-primary)', padding: '0.12rem 0.45rem', borderRadius: '9999px', fontWeight: 700 }}>
-                8 AI Tools • Center Stage
-              </span>
-            </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-              {activeSourcesText}
-            </div>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+          <currentToolMeta.icon size={16} style={{ color: currentToolMeta.color }} />
+          <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+            {currentToolMeta.label} Result
+          </span>
+          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+            Generated at {output.timestamp || 'Just now'} • {output.sourceCount || sources.length} sources
+          </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {onBackToChat && (
-            <button 
-              onClick={onBackToChat}
-              className="btn-ghost"
-              style={{ fontSize: '0.76rem', padding: '0.35rem 0.75rem', gap: '0.35rem' }}
-              title="Return to Chat Stream"
-            >
-              <MessageSquare size={14} /> Back to Chat
-            </button>
-          )}
-          <button 
-            onClick={onClose}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          <button
             className="composer-btn-icon"
             style={{ width: '28px', height: '28px' }}
-            title="Close Studio (Return to Chat)"
+            title="Copy Result"
+            onClick={() => handleCopy(output.content)}
           >
-            <X size={16} />
+            {copied ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
           </button>
-        </div>
-      </div>
-
-      {/* 2-Column / Multi-Column Responsive Pill Grid */}
-      <div style={{
-        padding: '0.85rem 1.5rem',
-        background: 'var(--bg-app)',
-        borderBottom: '1px solid var(--border-subtle)',
-        flexShrink: 0
-      }}>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: '0.55rem',
-          maxWidth: '920px',
-          margin: '0 auto',
-          width: '100%'
-        }}>
-          {STUDIO_TOOLS.map(tool => {
-            const Icon = tool.icon;
-            const isSelected = activeTab === tool.id;
-            return (
-              <button
-                key={tool.id}
-                onClick={() => setActiveTab(tool.id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.55rem',
-                  padding: '0.55rem 0.85rem',
-                  borderRadius: '9999px',
-                  border: isSelected 
-                    ? `1.5px solid ${tool.color}` 
-                    : '1px solid var(--border-subtle)',
-                  background: isSelected 
-                    ? `${tool.color}15` 
-                    : 'var(--bg-surface)',
-                  color: 'var(--text-primary)',
-                  fontWeight: isSelected ? 700 : 500,
-                  fontSize: '0.8rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.16s ease',
-                  boxShadow: isSelected 
-                    ? `0 2px 10px ${tool.color}25` 
-                    : '0 1px 2px rgba(0,0,0,0.03)',
-                  textAlign: 'left',
-                  width: '100%',
-                  position: 'relative'
-                }}
-              >
-                <div style={{ color: tool.color, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                  <Icon size={16} strokeWidth={2.2} />
-                </div>
-                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {tool.label}
-                </span>
-                {tool.badge && (
-                  <span style={{
-                    fontSize: '0.62rem',
-                    fontWeight: 700,
-                    padding: '0.1rem 0.4rem',
-                    borderRadius: '9999px',
-                    background: 'rgba(148, 163, 184, 0.25)',
-                    color: 'var(--text-secondary)',
-                    lineHeight: 1.2
-                  }}>
-                    {tool.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Secondary Navigation to Notes Board */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', maxWidth: '920px', margin: '0.45rem auto 0 auto' }}>
           <button
-            onClick={() => setActiveTab('notes')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              background: activeTab === 'notes' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-              border: activeTab === 'notes' ? '1px solid var(--accent-primary)' : '1px solid transparent',
-              borderRadius: 'var(--radius-sm)',
-              padding: '0.2rem 0.55rem',
-              fontSize: '0.72rem',
-              fontWeight: 600,
-              color: activeTab === 'notes' ? 'var(--accent-primary)' : 'var(--text-muted)',
-              cursor: 'pointer'
-            }}
+            className="composer-btn-icon"
+            style={{ width: '28px', height: '28px' }}
+            title="Save to Notes"
+            onClick={() => onSaveNote({
+              id: `note_${Date.now()}`,
+              title: `${currentToolMeta.label} Artifact`,
+              content: typeof output.content === 'string' ? output.content : JSON.stringify(output.content, null, 2),
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            })}
           >
-            <StickyNote size={12} /> Notes & Scratchpad ({notes.length})
+            <StickyNote size={14} />
+          </button>
+          <button
+            onClick={onBackToChat}
+            className="btn-ghost"
+            style={{ fontSize: '0.74rem', padding: '0.25rem 0.6rem', gap: '0.35rem' }}
+            title="Switch back to Chat View"
+          >
+            <MessageSquare size={13} /> View Chat
           </button>
         </div>
       </div>
 
-      {/* Main Studio Body Area in Center */}
+      {/* Main Center Canvas Body */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem 1.5rem' }}>
         <div style={{ maxWidth: '920px', margin: '0 auto', width: '100%' }}>
 
-        {/* Empty Sources Notice */}
-        {sources.length === 0 && (
-          <div style={{
-            background: 'rgba(239, 68, 68, 0.08)',
-            border: '1px solid rgba(239, 68, 68, 0.25)',
-            borderRadius: 'var(--radius-md)',
-            padding: '0.85rem 1rem',
-            marginBottom: '1rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.65rem'
-          }}>
-            <Info size={16} style={{ color: '#ef4444', flexShrink: 0 }} />
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-              <strong style={{ color: 'var(--text-primary)' }}>No sources loaded:</strong> Please add at least one source (PDF, Image, or Website Link) using the Add Source buttons on the left to generate deep dive artifacts.
-            </span>
-          </div>
-        )}
-
-        {/* ============================================================== */}
-        {/* 1. AUDIO OVERVIEW (PODCAST)                                    */}
-        {/* ============================================================== */}
-        {activeTab === 'audio-overview' && (
-          <div>
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%)',
-              border: '1px solid rgba(59, 130, 246, 0.25)',
-              borderRadius: 'var(--radius-md)',
-              padding: '1rem',
-              marginBottom: '1rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Radio size={18} style={{ color: '#3b82f6' }} />
-                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Audio Deep Dive Overview</span>
-                </div>
-                <span style={{ fontSize: '0.7rem', background: 'rgba(59, 130, 246, 0.2)', color: '#38bdf8', padding: '0.15rem 0.45rem', borderRadius: 'var(--radius-full)', fontWeight: 700 }}>
-                  2 Hosts • Alex & Jordan
-                </span>
-              </div>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '0.85rem' }}>
-                Generate an engaging, two-host audio conversation bringing your uploaded knowledge to life with voice playback.
-              </p>
-
-              <button
-                className="btn-gradient"
-                style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center', padding: '0.55rem' }}
-                onClick={() => handleGenerate('audio-overview')}
-                disabled={loading || sources.length === 0}
-              >
-                {loading ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <RefreshCw size={14} className="spin-animate" /> Synthesizing Audio Overview...
-                  </span>
-                ) : (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <Sparkles size={14} /> {currentOutput ? 'Regenerate Audio Overview' : 'Generate Audio Overview'}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {/* Audio Player Controls */}
-            {currentOutput && audioTurns.length > 0 && (
-              <div style={{
-                background: 'var(--bg-surface-elevated)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-md)',
-                padding: '0.85rem 1rem',
-                marginBottom: '1rem'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Volume2 size={15} /> 
-                    {isPlayingAudio 
-                      ? `Playing: ${audioTurns[currentSpeakerTurn]?.speaker || 'Host'} speaking...` 
-                      : isPausedAudio 
-                        ? 'Audio Paused' 
-                        : 'Interactive Voice Playback Ready'}
-                  </span>
-                  
-                  {/* Speed toggle */}
-                  <div style={{ display: 'flex', gap: '0.2rem' }}>
-                    {[1, 1.25, 1.5].map(s => (
-                      <button
-                        key={s}
-                        onClick={() => setAudioSpeed(s)}
-                        style={{
-                          fontSize: '0.68rem',
-                          padding: '0.1rem 0.35rem',
-                          borderRadius: '4px',
-                          border: audioSpeed === s ? '1px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
-                          background: audioSpeed === s ? 'var(--accent-primary)' : 'transparent',
-                          color: '#fff',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {s}x
-                      </button>
-                    ))}
+          {/* ============================================================== */}
+          {/* SLIDE DECK                                                     */}
+          {/* ============================================================== */}
+          {toolId === 'slide-deck' && (
+            output?.parsedData?.slides?.length > 0 ? (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                  <div>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#d946ef' }}>
+                      Slide {currentSlideIndex + 1} of {output.parsedData.slides.length}
+                    </span>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                      {output.parsedData.deckTitle || 'Presentation Deck'}
+                    </div>
                   </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  {!isPlayingAudio ? (
-                    <button
-                      className="btn-gradient"
-                      style={{ flex: 1, fontSize: '0.8rem', justifyContent: 'center', padding: '0.45rem' }}
-                      onClick={handleStartAudio}
-                    >
-                      <Play size={15} /> {isPausedAudio ? 'Resume Dialogue' : 'Play Audio Overview'}
-                    </button>
-                  ) : (
-                    <button
-                      className="btn-ghost"
-                      style={{ flex: 1, fontSize: '0.8rem', justifyContent: 'center', padding: '0.45rem', borderColor: 'var(--accent-amber)', color: 'var(--accent-amber)' }}
-                      onClick={handlePauseAudio}
-                    >
-                      <Pause size={15} /> Pause
-                    </button>
-                  )}
-
-                  <button
-                    className="btn-ghost"
-                    style={{ width: '36px', height: '36px', justifyContent: 'center', padding: 0 }}
-                    onClick={handleStopAudio}
-                    title="Stop Audio"
-                  >
-                    <Square size={14} />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Transcript */}
-            {currentOutput && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-                    TRANSCRIPT ({audioTurns.length} turns)
-                  </span>
                   <div style={{ display: 'flex', gap: '0.35rem' }}>
                     <button
                       className="composer-btn-icon"
-                      style={{ width: '26px', height: '26px' }}
-                      title="Copy script"
-                      onClick={() => handleCopyContent(currentOutput.content)}
-                    >
-                      {copied ? <Check size={13} style={{ color: '#10b981' }} /> : <Copy size={13} />}
-                    </button>
-                    <button
-                      className="composer-btn-icon"
-                      style={{ width: '26px', height: '26px' }}
-                      title="Save to Notes"
-                      onClick={() => handleSaveToNotesCurrent('Audio Overview Script', currentOutput.content)}
-                    >
-                      <StickyNote size={13} />
-                    </button>
-                  </div>
-                </div>
-
-                {audioTurns.map((turn, idx) => {
-                  const isActive = currentSpeakerTurn === idx;
-                  const isAlex = turn.speaker === 'Alex';
-                  return (
-                    <div 
-                      key={idx}
-                      style={{
-                        padding: '0.75rem 0.85rem',
-                        borderRadius: 'var(--radius-sm)',
-                        background: isActive 
-                          ? 'rgba(59, 130, 246, 0.2)' 
-                          : isAlex 
-                            ? 'var(--bg-surface-elevated)' 
-                            : 'rgba(255, 255, 255, 0.03)',
-                        border: isActive ? '1px solid #3b82f6' : '1px solid var(--border-subtle)',
-                        transition: 'all 0.2s ease'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.3rem' }}>
-                        <span style={{
-                          fontSize: '0.68rem',
-                          fontWeight: 800,
-                          padding: '0.1rem 0.4rem',
-                          borderRadius: '4px',
-                          background: isAlex ? 'rgba(56, 189, 248, 0.2)' : 'rgba(244, 114, 182, 0.2)',
-                          color: isAlex ? '#38bdf8' : '#f472b6'
-                        }}>
-                          {turn.speaker}
-                        </span>
-                        {isActive && (
-                          <span style={{ fontSize: '0.68rem', color: '#38bdf8', fontWeight: 700 }}>
-                            Speaking now...
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: '0.84rem', lineHeight: 1.55, color: 'var(--text-primary)' }}>
-                        {turn.text}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ============================================================== */}
-        {/* 2. SLIDE DECK                                                  */}
-        {/* ============================================================== */}
-        {activeTab === 'slide-deck' && (
-          <div>
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(217, 70, 239, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%)',
-              border: '1px solid rgba(217, 70, 239, 0.25)',
-              borderRadius: 'var(--radius-md)',
-              padding: '1rem',
-              marginBottom: '1rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Presentation size={18} style={{ color: '#d946ef' }} />
-                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Slide Deck Presentation</span>
-                </div>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                  Grounded on {sources.length} sources
-                </span>
-              </div>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '0.85rem' }}>
-                Generate an executive presentation deck complete with key takeaways, visual concept suggestions, and speaker notes.
-              </p>
-
-              <button
-                className="btn-gradient"
-                style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center', padding: '0.55rem' }}
-                onClick={() => handleGenerate('slide-deck')}
-                disabled={loading || sources.length === 0}
-              >
-                {loading ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <RefreshCw size={14} className="spin-animate" /> Crafting Slide Deck...
-                  </span>
-                ) : (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <Sparkles size={14} /> {currentOutput ? 'Regenerate Slide Deck' : 'Generate Slide Deck'}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {/* Slide Viewer */}
-            {currentOutput?.parsedData?.slides && currentOutput.parsedData.slides.length > 0 ? (
-              <div>
-                {/* Header info & nav */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                  <div>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#d946ef' }}>
-                      Slide {currentSlideIndex + 1} of {currentOutput.parsedData.slides.length}
-                    </span>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                      {currentOutput.parsedData.deckTitle || 'Presentation Deck'}
-                    </div>
-                  </div>
-                  
-                  <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
-                    <button
-                      className="composer-btn-icon"
-                      style={{ width: '28px', height: '28px' }}
+                      style={{ width: '32px', height: '32px' }}
                       disabled={currentSlideIndex === 0}
                       onClick={() => setCurrentSlideIndex(prev => Math.max(0, prev - 1))}
-                      title="Previous Slide"
                     >
                       <ChevronLeft size={16} />
                     </button>
                     <button
                       className="composer-btn-icon"
-                      style={{ width: '28px', height: '28px' }}
-                      disabled={currentSlideIndex === currentOutput.parsedData.slides.length - 1}
-                      onClick={() => setCurrentSlideIndex(prev => Math.min(currentOutput.parsedData.slides.length - 1, prev + 1))}
-                      title="Next Slide"
+                      style={{ width: '32px', height: '32px' }}
+                      disabled={currentSlideIndex === output.parsedData.slides.length - 1}
+                      onClick={() => setCurrentSlideIndex(prev => Math.min(output.parsedData.slides.length - 1, prev + 1))}
                     >
                       <ChevronRight size={16} />
-                    </button>
-                    <button
-                      className="composer-btn-icon"
-                      style={{ width: '28px', height: '28px' }}
-                      title="Copy slide deck"
-                      onClick={() => handleCopyContent(currentOutput.content)}
-                    >
-                      {copied ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
-                    </button>
-                    <button
-                      className="composer-btn-icon"
-                      style={{ width: '28px', height: '28px' }}
-                      title="Save to Notes"
-                      onClick={() => handleSaveToNotesCurrent(currentOutput.parsedData.deckTitle || 'Slide Deck', currentOutput.content)}
-                    >
-                      <StickyNote size={14} />
                     </button>
                   </div>
                 </div>
 
-                {/* Active Slide Canvas */}
                 {(() => {
-                  const slide = currentOutput.parsedData.slides[currentSlideIndex];
+                  const slide = output.parsedData.slides[currentSlideIndex];
                   return (
                     <div style={{
                       background: 'var(--bg-surface-elevated)',
                       border: '1.5px solid rgba(217, 70, 239, 0.3)',
                       borderRadius: 'var(--radius-lg)',
-                      padding: '1.25rem',
-                      boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                      padding: '1.5rem',
+                      boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
                       marginBottom: '1rem'
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#d946ef', background: 'rgba(217, 70, 239, 0.15)', padding: '0.15rem 0.5rem', borderRadius: '9999px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#d946ef', background: 'rgba(217, 70, 239, 0.15)', padding: '0.15rem 0.55rem', borderRadius: '9999px' }}>
                           SLIDE {slide.slideNumber || currentSlideIndex + 1}
                         </span>
                         {slide.visualConcept && (
-                          <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                            <Eye size={12} style={{ color: 'var(--accent-cyan)' }} /> Visual concept included
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <Eye size={13} style={{ color: 'var(--accent-cyan)' }} /> Visual Concept Included
                           </span>
                         )}
                       </div>
 
-                      <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.9rem', lineHeight: 1.35 }}>
+                      <h3 style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--text-primary)', marginBottom: '1.15rem' }}>
                         {slide.title}
                       </h3>
 
-                      {/* Bullets */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1rem' }}>
-                        {slide.bullets?.map((bullet, bIdx) => (
-                          <div key={bIdx} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', fontSize: '0.86rem', lineHeight: 1.55 }}>
-                            <span style={{ color: '#d946ef', fontWeight: 800, marginTop: '0.1rem' }}>✦</span>
-                            <span style={{ color: 'var(--text-primary)' }}>{bullet}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                        {slide.bullets?.map((b, bIdx) => (
+                          <div key={bIdx} style={{ display: 'flex', gap: '0.65rem', alignItems: 'flex-start', fontSize: '0.92rem', lineHeight: 1.6 }}>
+                            <span style={{ color: '#d946ef', fontWeight: 800 }}>✦</span>
+                            <span style={{ color: 'var(--text-primary)' }}>{b}</span>
                           </div>
                         ))}
                       </div>
 
-                      {/* Visual Concept Pill */}
                       {slide.visualConcept && (
                         <div style={{
                           background: 'rgba(56, 189, 248, 0.08)',
                           border: '1px solid rgba(56, 189, 248, 0.25)',
                           borderRadius: 'var(--radius-sm)',
-                          padding: '0.6rem 0.75rem',
-                          fontSize: '0.76rem',
+                          padding: '0.65rem 0.85rem',
+                          fontSize: '0.8rem',
                           color: 'var(--accent-cyan)',
-                          marginBottom: '0.75rem',
+                          marginBottom: '0.85rem',
                           display: 'flex',
                           alignItems: 'flex-start',
                           gap: '0.45rem'
                         }}>
-                          <Eye size={14} style={{ flexShrink: 0, marginTop: '0.1rem' }} />
-                          <div>
-                            <strong>Visual Concept: </strong> {slide.visualConcept}
-                          </div>
+                          <Eye size={15} style={{ flexShrink: 0, marginTop: '0.1rem' }} />
+                          <div><strong>Visual Idea: </strong>{slide.visualConcept}</div>
                         </div>
                       )}
 
-                      {/* Speaker Notes Toggle */}
                       {slide.speakerNotes && (
-                        <div style={{ marginTop: '0.5rem' }}>
+                        <div>
                           <button
                             onClick={() => setShowSpeakerNotes(!showSpeakerNotes)}
                             style={{
                               background: 'none',
                               border: 'none',
                               color: 'var(--text-muted)',
-                              fontSize: '0.74rem',
+                              fontSize: '0.76rem',
                               fontWeight: 600,
                               cursor: 'pointer',
                               display: 'flex',
@@ -1153,18 +842,18 @@ export default function NotebookStudio({
                             }}
                           >
                             <Lightbulb size={13} style={{ color: '#f59e0b' }} />
-                            {showSpeakerNotes ? 'Hide Speaker Script' : 'Show Speaker Script'}
+                            {showSpeakerNotes ? 'Hide Speaker Notes' : 'Show Speaker Notes'}
                           </button>
                           {showSpeakerNotes && (
                             <div style={{
-                              marginTop: '0.4rem',
-                              padding: '0.65rem 0.75rem',
+                              marginTop: '0.45rem',
+                              padding: '0.75rem',
                               background: 'rgba(255,255,255,0.04)',
                               borderRadius: 'var(--radius-sm)',
-                              fontSize: '0.78rem',
+                              fontSize: '0.82rem',
                               fontStyle: 'italic',
-                              lineHeight: 1.5,
-                              color: 'var(--text-secondary)'
+                              color: 'var(--text-secondary)',
+                              lineHeight: 1.55
                             }}>
                               "{slide.speakerNotes}"
                             </div>
@@ -1175,20 +864,20 @@ export default function NotebookStudio({
                   );
                 })()}
 
-                {/* Slide Thumbnail Dots */}
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
-                  {currentOutput.parsedData.slides.map((_, sIdx) => (
+                {/* Thumbnail dots */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '0.4rem' }}>
+                  {output.parsedData.slides.map((_, sIdx) => (
                     <button
                       key={sIdx}
                       onClick={() => setCurrentSlideIndex(sIdx)}
                       style={{
-                        width: '28px',
-                        height: '24px',
+                        width: '32px',
+                        height: '28px',
                         borderRadius: '4px',
                         border: currentSlideIndex === sIdx ? '1.5px solid #d946ef' : '1px solid var(--border-subtle)',
                         background: currentSlideIndex === sIdx ? '#d946ef' : 'var(--bg-surface)',
                         color: currentSlideIndex === sIdx ? '#fff' : 'var(--text-secondary)',
-                        fontSize: '0.7rem',
+                        fontSize: '0.74rem',
                         fontWeight: 700,
                         cursor: 'pointer'
                       }}
@@ -1198,732 +887,30 @@ export default function NotebookStudio({
                   ))}
                 </div>
               </div>
-            ) : currentOutput ? (
-              <div style={{ background: 'var(--bg-surface-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
-                <StudioMarkdownViewer text={currentOutput.content} />
-              </div>
-            ) : null}
-          </div>
-        )}
+            ) : <StudioMarkdownViewer text={output.content} />
+          )}
 
-        {/* ============================================================== */}
-        {/* 3. VIDEO OVERVIEW                                              */}
-        {/* ============================================================== */}
-        {activeTab === 'video-overview' && (
-          <div>
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%)',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
-              borderRadius: 'var(--radius-md)',
-              padding: '1rem',
-              marginBottom: '1rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Video size={18} style={{ color: '#10b981' }} />
-                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Video Overview Storyboard</span>
-                </div>
-                <span style={{ fontSize: '0.7rem', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '0.15rem 0.45rem', borderRadius: 'var(--radius-full)', fontWeight: 700 }}>
-                  2-3 Min Cinematic
-                </span>
-              </div>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '0.85rem' }}>
-                Produce a scene-by-scene cinematic video overview storyboard with camera direction, visual b-roll, on-screen text, and voiceover narration.
-              </p>
-
-              <button
-                className="btn-gradient"
-                style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center', padding: '0.55rem' }}
-                onClick={() => handleGenerate('video-overview')}
-                disabled={loading || sources.length === 0}
-              >
-                {loading ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <RefreshCw size={14} className="spin-animate" /> Generating Video Storyboard...
-                  </span>
-                ) : (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <Sparkles size={14} /> {currentOutput ? 'Regenerate Video Storyboard' : 'Generate Video Overview'}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {/* Interactive Video Player & Storyboard */}
-            {currentOutput?.parsedData?.scenes && currentOutput.parsedData.scenes.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {/* Video Header & Meta */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
-                      {currentOutput.parsedData.videoTitle || 'Cinematic Video Overview'}
-                    </h3>
-                    <div style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 600 }}>
-                      Est. Duration: {currentOutput.parsedData.estimatedDuration || '2:30'} • {currentOutput.parsedData.scenes.length} Scenes
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.35rem' }}>
-                    <button
-                      className="composer-btn-icon"
-                      style={{ width: '28px', height: '28px' }}
-                      title="Copy storyboard script"
-                      onClick={() => handleCopyContent(currentOutput.content)}
-                    >
-                      {copied ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
-                    </button>
-                    <button
-                      className="composer-btn-icon"
-                      style={{ width: '28px', height: '28px' }}
-                      title="Save to Notes"
-                      onClick={() => handleSaveToNotesCurrent(currentOutput.parsedData.videoTitle || 'Video Storyboard', currentOutput.content)}
-                    >
-                      <StickyNote size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* 16:9 Cinematic Video Frame */}
-                {(() => {
-                  const scenes = currentOutput.parsedData.scenes;
-                  const scene = scenes[activeSceneIndex] || scenes[0];
-
-                  return (
-                    <div style={{
-                      position: 'relative',
-                      borderRadius: 'var(--radius-lg)',
-                      overflow: 'hidden',
-                      border: '1.5px solid rgba(16, 185, 129, 0.4)',
-                      boxShadow: '0 8px 30px rgba(0, 0, 0, 0.35)',
-                      background: 'linear-gradient(135deg, #051410 0%, #062e22 50%, #031c15 100%)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      minHeight: '260px'
-                    }}>
-                      {/* Top Overlay Bar */}
-                      <div style={{
-                        padding: '0.75rem 1rem',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        background: 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)',
-                        zIndex: 2
-                      }}>
-                        <span style={{
-                          fontSize: '0.7rem',
-                          fontWeight: 800,
-                          color: '#34d399',
-                          background: 'rgba(16, 185, 129, 0.25)',
-                          padding: '0.2rem 0.55rem',
-                          borderRadius: '9999px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.35rem'
-                        }}>
-                          <Video size={13} /> SCENE {activeSceneIndex + 1} OF {scenes.length}
-                        </span>
-                        <span style={{ fontSize: '0.7rem', color: '#cbd5e1', fontWeight: 600 }}>
-                          ⏱️ {scene.timestamp || `0:${(activeSceneIndex * 25).toString().padStart(2, '0')}`}
-                        </span>
-                      </div>
-
-                      {/* Center Visual Canvas with Scene Concept */}
-                      <div style={{
-                        padding: '1.25rem 1.5rem',
-                        textAlign: 'center',
-                        zIndex: 2,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.65rem'
-                      }}>
-                        <h4 style={{
-                          fontSize: '1.25rem',
-                          fontWeight: 900,
-                          color: '#f8fafc',
-                          textShadow: '0 2px 10px rgba(0,0,0,0.8)',
-                          lineHeight: 1.3,
-                          margin: 0
-                        }}>
-                          {scene.sceneTitle}
-                        </h4>
-
-                        {scene.visualPrompt && (
-                          <div style={{
-                            background: 'rgba(0, 0, 0, 0.65)',
-                            backdropFilter: 'blur(8px)',
-                            border: '1px solid rgba(16, 185, 129, 0.3)',
-                            borderRadius: 'var(--radius-md)',
-                            padding: '0.6rem 0.85rem',
-                            fontSize: '0.76rem',
-                            color: '#94a3b8',
-                            lineHeight: 1.45,
-                            maxWidth: '92%'
-                          }}>
-                            <strong style={{ color: '#34d399' }}>Visual Direction: </strong>
-                            {scene.visualPrompt}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Lower Third On-Screen Subtitle Banner */}
-                      {scene.onScreenText && (
-                        <div style={{
-                          margin: '0 1rem 0.65rem 1rem',
-                          padding: '0.45rem 0.85rem',
-                          borderRadius: '6px',
-                          background: 'rgba(6, 182, 212, 0.2)',
-                          backdropFilter: 'blur(6px)',
-                          border: '1px solid rgba(6, 182, 212, 0.4)',
-                          color: '#67e8f9',
-                          fontSize: '0.82rem',
-                          fontWeight: 800,
-                          textAlign: 'center',
-                          zIndex: 2
-                        }}>
-                          📺 "{scene.onScreenText}"
-                        </div>
-                      )}
-
-                      {/* Progress Line */}
-                      <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', position: 'relative' }}>
-                        <div style={{
-                          height: '100%',
-                          background: 'linear-gradient(90deg, #10b981 0%, #34d399 100%)',
-                          width: isPlayingVideo ? `${videoProgress}%` : `${((activeSceneIndex + 1) / scenes.length) * 100}%`,
-                          transition: 'width 0.15s ease'
-                        }} />
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Video Playback Controls Bar */}
-                {(() => {
-                  const scenes = currentOutput.parsedData.scenes;
-                  return (
-                    <div style={{
-                      background: 'var(--bg-surface-elevated)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '0.85rem 1rem',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.65rem'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                          <Volume2 size={15} /> 
-                          {isPlayingVideo 
-                            ? `Playing & Narrating Scene ${activeSceneIndex + 1} of ${scenes.length}...` 
-                            : isVideoPaused 
-                              ? 'Video Paused' 
-                              : 'Cinematic Voiceover Ready'}
-                        </span>
-
-                        {/* Speed Toggle */}
-                        <div style={{ display: 'flex', gap: '0.2rem' }}>
-                          {[1, 1.25, 1.5].map(s => (
-                            <button
-                              key={s}
-                              onClick={() => setVideoSpeed(s)}
-                              style={{
-                                fontSize: '0.68rem',
-                                padding: '0.1rem 0.35rem',
-                                borderRadius: '4px',
-                                border: videoSpeed === s ? '1px solid #10b981' : '1px solid var(--border-subtle)',
-                                background: videoSpeed === s ? '#10b981' : 'transparent',
-                                color: '#fff',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              {s}x
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Control Buttons */}
-                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <button
-                          className="composer-btn-icon"
-                          style={{ width: '32px', height: '32px' }}
-                          disabled={activeSceneIndex === 0}
-                          onClick={() => {
-                            if (window.speechSynthesis) window.speechSynthesis.cancel();
-                            setIsPlayingVideo(false);
-                            setActiveSceneIndex(prev => Math.max(0, prev - 1));
-                          }}
-                          title="Previous Scene"
-                        >
-                          <ChevronLeft size={16} />
-                        </button>
-
-                        {!isPlayingVideo ? (
-                          <button
-                            className="btn-gradient"
-                            style={{ flex: 1, fontSize: '0.82rem', justifyContent: 'center', padding: '0.5rem', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
-                            onClick={handleStartVideo}
-                          >
-                            <Play size={16} /> {isVideoPaused ? 'Resume Video' : 'Play Video Overview'}
-                          </button>
-                        ) : (
-                          <button
-                            className="btn-ghost"
-                            style={{ flex: 1, fontSize: '0.82rem', justifyContent: 'center', padding: '0.5rem', borderColor: '#f59e0b', color: '#f59e0b' }}
-                            onClick={handlePauseVideo}
-                          >
-                            <Pause size={16} /> Pause Video
-                          </button>
-                        )}
-
-                        <button
-                          className="btn-ghost"
-                          style={{ width: '36px', height: '36px', justifyContent: 'center', padding: 0 }}
-                          onClick={handleStopVideo}
-                          title="Stop Video"
-                        >
-                          <Square size={14} />
-                        </button>
-
-                        <button
-                          className="composer-btn-icon"
-                          style={{ width: '32px', height: '32px' }}
-                          disabled={activeSceneIndex === scenes.length - 1}
-                          onClick={() => {
-                            if (window.speechSynthesis) window.speechSynthesis.cancel();
-                            setIsPlayingVideo(false);
-                            setActiveSceneIndex(prev => Math.min(scenes.length - 1, prev + 1));
-                          }}
-                          title="Next Scene"
-                        >
-                          <ChevronRight size={16} />
-                        </button>
-                      </div>
-
-                      {/* Scene Selector Scrubber Chips */}
-                      <div style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', paddingTop: '0.2rem' }}>
-                        {scenes.map((sc, scIdx) => (
-                          <button
-                            key={scIdx}
-                            onClick={() => {
-                              if (window.speechSynthesis) window.speechSynthesis.cancel();
-                              setIsPlayingVideo(false);
-                              setActiveSceneIndex(scIdx);
-                            }}
-                            style={{
-                              padding: '0.25rem 0.55rem',
-                              borderRadius: '4px',
-                              fontSize: '0.7rem',
-                              fontWeight: 700,
-                              whiteSpace: 'nowrap',
-                              cursor: 'pointer',
-                              border: activeSceneIndex === scIdx ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
-                              background: activeSceneIndex === scIdx ? 'rgba(16, 185, 129, 0.2)' : 'var(--bg-app)',
-                              color: activeSceneIndex === scIdx ? '#34d399' : 'var(--text-secondary)'
-                            }}
-                          >
-                            Scene {scIdx + 1}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Spoken Voiceover Narration Transcript of Active Scene */}
-                {(() => {
-                  const scenes = currentOutput.parsedData.scenes;
-                  const scene = scenes[activeSceneIndex] || scenes[0];
-                  return (
-                    <div style={{
-                      background: 'var(--bg-surface-elevated)',
-                      border: '1px solid var(--border-subtle)',
-                      borderLeft: '3px solid #10b981',
-                      borderRadius: 'var(--radius-sm)',
-                      padding: '0.85rem 1rem'
-                    }}>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#10b981', textTransform: 'uppercase', marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                        <Volume2 size={13} /> Active Scene Narration Script
-                      </div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontStyle: 'italic', lineHeight: 1.6 }}>
-                        "{scene.narration || scene.sceneTitle}"
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            ) : currentOutput ? (
-              <div style={{ background: 'var(--bg-surface-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
-                <StudioMarkdownViewer text={currentOutput.content} />
-              </div>
-            ) : null}
-          </div>
-        )}
-
-        {/* ============================================================== */}
-        {/* 4. MIND MAP                                                    */}
-        {/* ============================================================== */}
-        {activeTab === 'mind-map' && (
-          <div>
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(217, 70, 239, 0.08) 100%)',
-              border: '1px solid rgba(139, 92, 246, 0.25)',
-              borderRadius: 'var(--radius-md)',
-              padding: '1rem',
-              marginBottom: '1rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Network size={18} style={{ color: '#8b5cf6' }} />
-                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Knowledge Mind Map</span>
-                </div>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                  Interactive Node Graph
-                </span>
-              </div>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '0.85rem' }}>
-                Map out complex relationships, core branches, and subtopics with visual hierarchical nodes and Mermaid diagrams.
-              </p>
-
-              <button
-                className="btn-gradient"
-                style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center', padding: '0.55rem' }}
-                onClick={() => handleGenerate('mind-map')}
-                disabled={loading || sources.length === 0}
-              >
-                {loading ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <RefreshCw size={14} className="spin-animate" /> Mapping Knowledge Graph...
-                  </span>
-                ) : (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <Sparkles size={14} /> {currentOutput ? 'Regenerate Mind Map' : 'Generate Mind Map'}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {/* Mind Map Tree */}
-            {currentOutput?.parsedData?.branches ? (
+          {/* ============================================================== */}
+          {/* FLASHCARDS                                                     */}
+          {/* ============================================================== */}
+          {toolId === 'flashcards' && (
+            flashcardDeck.length > 0 ? (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
-                  <div style={{ display: 'flex', gap: '0.35rem' }}>
-                    <button
-                      onClick={() => setMindMapViewMode('visual')}
-                      style={{
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        padding: '0.2rem 0.55rem',
-                        borderRadius: '4px',
-                        border: mindMapViewMode === 'visual' ? '1px solid #8b5cf6' : '1px solid var(--border-subtle)',
-                        background: mindMapViewMode === 'visual' ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
-                        color: mindMapViewMode === 'visual' ? '#8b5cf6' : 'var(--text-secondary)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Visual Map
-                    </button>
-                    {currentOutput.parsedData.mermaid && (
-                      <button
-                        onClick={() => setMindMapViewMode('mermaid')}
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 700,
-                          padding: '0.2rem 0.55rem',
-                          borderRadius: '4px',
-                          border: mindMapViewMode === 'mermaid' ? '1px solid #8b5cf6' : '1px solid var(--border-subtle)',
-                          background: mindMapViewMode === 'mermaid' ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
-                          color: mindMapViewMode === 'mermaid' ? '#8b5cf6' : 'var(--text-secondary)',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Mermaid Code
-                      </button>
-                    )}
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '0.35rem' }}>
-                    <button
-                      className="composer-btn-icon"
-                      style={{ width: '28px', height: '28px' }}
-                      title="Copy Mind Map"
-                      onClick={() => handleCopyContent(currentOutput.parsedData.mermaid || currentOutput.content)}
-                    >
-                      {copied ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
-                    </button>
-                    <button
-                      className="composer-btn-icon"
-                      style={{ width: '28px', height: '28px' }}
-                      title="Save to Notes"
-                      onClick={() => handleSaveToNotesCurrent('Knowledge Mind Map', currentOutput.content)}
-                    >
-                      <StickyNote size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                {mindMapViewMode === 'visual' ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {/* Central Node */}
-                    <div style={{
-                      background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(99, 102, 241, 0.2) 100%)',
-                      border: '2px solid #8b5cf6',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '0.85rem 1rem',
-                      textAlign: 'center',
-                      boxShadow: '0 4px 15px rgba(139, 92, 246, 0.2)'
-                    }}>
-                      <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        CENTRAL KNOWLEDGE TOPIC
-                      </span>
-                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0.25rem 0' }}>
-                        {currentOutput.parsedData.centralTopic || 'Core Subject'}
-                      </h3>
-                      {currentOutput.parsedData.summary && (
-                        <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>
-                          {currentOutput.parsedData.summary}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Branches */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                      {currentOutput.parsedData.branches.map((branch, bIdx) => (
-                        <div
-                          key={bIdx}
-                          style={{
-                            background: 'var(--bg-surface-elevated)',
-                            border: '1px solid var(--border-subtle)',
-                            borderLeft: '3px solid #8b5cf6',
-                            borderRadius: 'var(--radius-sm)',
-                            padding: '0.85rem'
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.35rem' }}>
-                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#8b5cf6' }} />
-                            <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                              {branch.title}
-                            </h4>
-                          </div>
-
-                          {branch.summary && (
-                            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', lineHeight: 1.45 }}>
-                              {branch.summary}
-                            </p>
-                          )}
-
-                          {branch.subTopics && branch.subTopics.length > 0 && (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                              {branch.subTopics.map((sub, sIdx) => (
-                                <span
-                                  key={sIdx}
-                                  style={{
-                                    fontSize: '0.72rem',
-                                    padding: '0.2rem 0.5rem',
-                                    borderRadius: '9999px',
-                                    background: 'rgba(139, 92, 246, 0.1)',
-                                    color: '#c4b5fd',
-                                    border: '1px solid rgba(139, 92, 246, 0.2)'
-                                  }}
-                                >
-                                  {sub}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  /* Mermaid Code Tab */
-                  <div style={{
-                    background: 'var(--bg-app)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: '0.85rem',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '0.78rem',
-                    color: 'var(--text-primary)',
-                    whiteSpace: 'pre-wrap',
-                    overflowX: 'auto'
-                  }}>
-                    {currentOutput.parsedData.mermaid}
-                  </div>
-                )}
-              </div>
-            ) : currentOutput ? (
-              <div style={{ background: 'var(--bg-surface-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
-                <StudioMarkdownViewer text={currentOutput.content} />
-              </div>
-            ) : null}
-          </div>
-        )}
-
-        {/* ============================================================== */}
-        {/* 5. REPORTS (NEW!)                                              */}
-        {/* ============================================================== */}
-        {activeTab === 'reports' && (
-          <div>
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%)',
-              border: '1px solid rgba(236, 72, 153, 0.25)',
-              borderRadius: 'var(--radius-md)',
-              padding: '1rem',
-              marginBottom: '1rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <FileText size={18} style={{ color: '#ec4899' }} />
-                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Comprehensive Research Report</span>
-                </div>
-                <span style={{ fontSize: '0.68rem', background: '#ec4899', color: '#fff', padding: '0.12rem 0.45rem', borderRadius: '9999px', fontWeight: 800 }}>
-                  New!
-                </span>
-              </div>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '0.85rem' }}>
-                Synthesize publication-grade executive intelligence reports with background scope, evidence breakdown, risk implications, and strategic roadmaps.
-              </p>
-
-              <button
-                className="btn-gradient"
-                style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center', padding: '0.55rem' }}
-                onClick={() => handleGenerate('reports')}
-                disabled={loading || sources.length === 0}
-              >
-                {loading ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <RefreshCw size={14} className="spin-animate" /> Compiling Research Report...
-                  </span>
-                ) : (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <Sparkles size={14} /> {currentOutput ? 'Regenerate Research Report' : 'Generate Research Report'}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {currentOutput && (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    Generated at {currentOutput.timestamp} • Grounded in {currentOutput.sourceCount || sources.length} sources
-                  </span>
-                  <div style={{ display: 'flex', gap: '0.35rem' }}>
-                    <button
-                      className="composer-btn-icon"
-                      style={{ width: '28px', height: '28px' }}
-                      title="Copy report"
-                      onClick={() => handleCopyContent(currentOutput.content)}
-                    >
-                      {copied ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
-                    </button>
-                    <button
-                      className="composer-btn-icon"
-                      style={{ width: '28px', height: '28px' }}
-                      title="Save to Notes"
-                      onClick={() => handleSaveToNotesCurrent('Executive Research Report', currentOutput.content)}
-                    >
-                      <StickyNote size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{
-                  background: 'var(--bg-surface-elevated)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '1.25rem'
-                }}>
-                  <StudioMarkdownViewer text={currentOutput.content} />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ============================================================== */}
-        {/* 6. FLASHCARDS                                                  */}
-        {/* ============================================================== */}
-        {activeTab === 'flashcards' && (
-          <div>
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.12) 0%, rgba(245, 158, 11, 0.08) 100%)',
-              border: '1px solid rgba(249, 115, 22, 0.25)',
-              borderRadius: 'var(--radius-md)',
-              padding: '1rem',
-              marginBottom: '1rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Layers size={18} style={{ color: '#f97316' }} />
-                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Interactive Study Flashcards</span>
-                </div>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                  3D Flippable Cards
-                </span>
-              </div>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '0.85rem' }}>
-                Turn your sources into a high-yield study deck with 3D flippable cards, category tagging, and shuffle practice.
-              </p>
-
-              <button
-                className="btn-gradient"
-                style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center', padding: '0.55rem' }}
-                onClick={() => handleGenerate('flashcards')}
-                disabled={loading || sources.length === 0}
-              >
-                {loading ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <RefreshCw size={14} className="spin-animate" /> Generating Flashcard Deck...
-                  </span>
-                ) : (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <Sparkles size={14} /> {currentOutput ? 'Regenerate Flashcards' : 'Generate Flashcards'}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {/* Flashcards Deck */}
-            {flashcardDeck.length > 0 ? (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                   <div>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#f97316' }}>
+                    <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f97316' }}>
                       Card {currentCardIndex + 1} of {flashcardDeck.length}
                     </span>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '0.45rem' }}>
+                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
                       ({flashcardDeck[currentCardIndex]?.category || 'Core Concept'})
                     </span>
                   </div>
-
-                  <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
-                    <button
-                      onClick={handleShuffleDeck}
-                      className="composer-btn-icon"
-                      style={{ width: '28px', height: '28px' }}
-                      title="Shuffle Deck"
-                    >
+                  <div style={{ display: 'flex', gap: '0.35rem' }}>
+                    <button onClick={handleShuffleDeck} className="composer-btn-icon" style={{ width: '28px', height: '28px' }} title="Shuffle Deck">
                       <Shuffle size={14} />
                     </button>
-                    <button
-                      onClick={() => setFlashcardViewMode(prev => prev === 'single' ? 'grid' : 'single')}
-                      className="composer-btn-icon"
-                      style={{ width: '28px', height: '28px' }}
-                      title={flashcardViewMode === 'single' ? 'View as Grid' : 'View Single Card'}
-                    >
+                    <button onClick={() => setFlashcardViewMode(prev => prev === 'single' ? 'grid' : 'single')} className="composer-btn-icon" style={{ width: '28px', height: '28px' }} title="Grid Mode">
                       <Layers size={14} />
-                    </button>
-                    <button
-                      className="composer-btn-icon"
-                      style={{ width: '28px', height: '28px' }}
-                      title="Save to Notes"
-                      onClick={() => handleSaveToNotesCurrent('Study Flashcards', currentOutput.content)}
-                    >
-                      <StickyNote size={14} />
                     </button>
                   </div>
                 </div>
@@ -1933,74 +920,57 @@ export default function NotebookStudio({
                     {/* 3D Flippable Card */}
                     <div 
                       onClick={() => setIsCardFlipped(!isCardFlipped)}
-                      style={{
-                        perspective: '1000px',
-                        cursor: 'pointer',
-                        marginBottom: '1rem',
-                        userSelect: 'none'
-                      }}
+                      style={{ perspective: '1000px', cursor: 'pointer', marginBottom: '1.25rem', userSelect: 'none' }}
                     >
                       <div style={{
-                        minHeight: '200px',
+                        minHeight: '220px',
                         borderRadius: 'var(--radius-lg)',
                         background: isCardFlipped 
                           ? 'linear-gradient(135deg, rgba(249, 115, 22, 0.15) 0%, rgba(245, 158, 11, 0.1) 100%)' 
                           : 'var(--bg-surface-elevated)',
-                        border: isCardFlipped 
-                          ? '2px solid #f97316' 
-                          : '1px solid var(--border-subtle)',
-                        padding: '1.5rem',
+                        border: isCardFlipped ? '2px solid #f97316' : '1px solid var(--border-subtle)',
+                        padding: '1.75rem',
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-                        transition: 'transform 0.4s ease, border-color 0.3s ease',
-                        transformStyle: 'preserve-3d',
-                        position: 'relative'
+                        boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+                        transition: 'transform 0.4s ease'
                       }}>
-                        {/* Top tag */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{
-                            fontSize: '0.68rem',
+                            fontSize: '0.7rem',
                             fontWeight: 800,
-                            padding: '0.15rem 0.5rem',
+                            padding: '0.15rem 0.55rem',
                             borderRadius: '9999px',
                             background: isCardFlipped ? '#f97316' : 'rgba(249, 115, 22, 0.15)',
                             color: isCardFlipped ? '#fff' : '#f97316'
                           }}>
-                            {isCardFlipped ? 'ANSWER / INSIGHT' : 'QUESTION'}
+                            {isCardFlipped ? 'ANSWER' : 'QUESTION'}
                           </span>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                            Click to flip 🔄
-                          </span>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Click anywhere to flip 🔄</span>
                         </div>
 
-                        {/* Card Content */}
-                        <div style={{ margin: '1.25rem 0', textAlign: 'center' }}>
+                        <div style={{ margin: '1.5rem 0', textAlign: 'center' }}>
                           <div style={{
-                            fontSize: isCardFlipped ? '0.92rem' : '1.05rem',
+                            fontSize: isCardFlipped ? '1rem' : '1.15rem',
                             fontWeight: isCardFlipped ? 500 : 700,
                             lineHeight: 1.6,
                             color: 'var(--text-primary)'
                           }}>
-                            {isCardFlipped 
-                              ? flashcardDeck[currentCardIndex]?.back 
-                              : flashcardDeck[currentCardIndex]?.front}
+                            {isCardFlipped ? flashcardDeck[currentCardIndex]?.back : flashcardDeck[currentCardIndex]?.front}
                           </div>
                         </div>
 
-                        {/* Bottom Hint */}
-                        <div style={{ textAlign: 'center', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                          {isCardFlipped ? 'Click card to flip back to question' : 'Click card to reveal answer'}
+                        <div style={{ textAlign: 'center', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                          {isCardFlipped ? 'Click card to flip back' : 'Click card to reveal answer'}
                         </div>
                       </div>
                     </div>
 
-                    {/* Navigation Controls */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <button
                         className="btn-ghost"
-                        style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+                        style={{ fontSize: '0.82rem', padding: '0.5rem 1rem' }}
                         disabled={currentCardIndex === 0}
                         onClick={() => {
                           setCurrentCardIndex(prev => Math.max(0, prev - 1));
@@ -2012,7 +982,7 @@ export default function NotebookStudio({
 
                       <button
                         className="btn-gradient"
-                        style={{ fontSize: '0.8rem', padding: '0.45rem 1rem', background: '#f97316' }}
+                        style={{ fontSize: '0.82rem', padding: '0.5rem 1.25rem', background: '#f97316' }}
                         onClick={() => setIsCardFlipped(!isCardFlipped)}
                       >
                         <RotateCcw size={14} /> Flip Card
@@ -2020,7 +990,7 @@ export default function NotebookStudio({
 
                       <button
                         className="btn-ghost"
-                        style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+                        style={{ fontSize: '0.82rem', padding: '0.5rem 1rem' }}
                         disabled={currentCardIndex === flashcardDeck.length - 1}
                         onClick={() => {
                           setCurrentCardIndex(prev => Math.min(flashcardDeck.length - 1, prev + 1));
@@ -2032,140 +1002,58 @@ export default function NotebookStudio({
                     </div>
                   </div>
                 ) : (
-                  /* Grid view of all flashcards */
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.65rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '0.75rem' }}>
                     {flashcardDeck.map((card, cIdx) => (
-                      <div
-                        key={cIdx}
-                        style={{
-                          background: 'var(--bg-surface-elevated)',
-                          border: '1px solid var(--border-subtle)',
-                          borderRadius: 'var(--radius-sm)',
-                          padding: '0.75rem',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '0.4rem'
-                        }}
-                      >
-                        <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#f97316' }}>
-                          #{cIdx + 1} • {card.category}
-                        </span>
-                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                          Q: {card.front}
-                        </div>
-                        <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-subtle)', paddingTop: '0.35rem' }}>
-                          A: {card.back}
-                        </div>
+                      <div key={cIdx} style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '0.85rem' }}>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#f97316' }}>#{cIdx + 1} • {card.category}</span>
+                        <div style={{ fontSize: '0.84rem', fontWeight: 700, margin: '0.4rem 0' }}>Q: {card.front}</div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-subtle)', paddingTop: '0.4rem' }}>A: {card.back}</div>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
-            ) : currentOutput ? (
-              <div style={{ background: 'var(--bg-surface-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
-                <StudioMarkdownViewer text={currentOutput.content} />
-              </div>
-            ) : null}
-          </div>
-        )}
+            ) : <StudioMarkdownViewer text={output.content} />
+          )}
 
-        {/* ============================================================== */}
-        {/* 7. QUIZ                                                        */}
-        {/* ============================================================== */}
-        {activeTab === 'quiz' && (
-          <div>
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(59, 130, 246, 0.08) 100%)',
-              border: '1px solid rgba(6, 182, 212, 0.25)',
-              borderRadius: 'var(--radius-md)',
-              padding: '1rem',
-              marginBottom: '1rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <HelpCircle size={18} style={{ color: '#06b6d4' }} />
-                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Interactive Comprehension Quiz</span>
-                </div>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                  Real-time Scoring
-                </span>
-              </div>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '0.85rem' }}>
-                Test your mastery with interactive multiple-choice questions, instant feedback highlights, and evidence explanations.
-              </p>
-
-              <button
-                className="btn-gradient"
-                style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center', padding: '0.55rem' }}
-                onClick={() => handleGenerate('quiz')}
-                disabled={loading || sources.length === 0}
-              >
-                {loading ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <RefreshCw size={14} className="spin-animate" /> Building Knowledge Quiz...
-                  </span>
-                ) : (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <Sparkles size={14} /> {currentOutput ? 'Regenerate Quiz' : 'Generate Quiz'}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {/* Quiz Game */}
-            {currentOutput?.parsedData?.questions && currentOutput.parsedData.questions.length > 0 ? (
+          {/* ============================================================== */}
+          {/* QUIZ                                                           */}
+          {/* ============================================================== */}
+          {toolId === 'quiz' && (
+            output?.parsedData?.questions?.length > 0 ? (
               <div>
-                {/* Score & Progress */}
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginBottom: '0.75rem',
-                  padding: '0.5rem 0.75rem',
+                  marginBottom: '1rem',
+                  padding: '0.65rem 1rem',
                   background: 'var(--bg-surface-elevated)',
                   borderRadius: 'var(--radius-sm)',
                   border: '1px solid var(--border-subtle)'
                 }}>
-                  <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#06b6d4' }}>
-                    Question {currentQuizQuestionIndex + 1} of {currentOutput.parsedData.questions.length}
+                  <div style={{ fontSize: '0.84rem', fontWeight: 800, color: '#06b6d4' }}>
+                    Question {currentQuizQuestionIndex + 1} of {output.parsedData.questions.length}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      Score: <strong style={{ color: '#10b981' }}>{quizScore}</strong> / {Object.keys(userQuizAnswers).length}
-                    </span>
-                    <button
-                      onClick={handleResetQuiz}
-                      className="composer-btn-icon"
-                      style={{ width: '24px', height: '24px' }}
-                      title="Retake Quiz"
-                    >
-                      <RotateCcw size={12} />
-                    </button>
+                  <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Score: <strong style={{ color: '#10b981' }}>{quizScore}</strong> / {Object.keys(userQuizAnswers).length}
                   </div>
                 </div>
 
-                {/* Active Question Card */}
                 {(() => {
-                  const q = currentOutput.parsedData.questions[currentQuizQuestionIndex];
+                  const q = output.parsedData.questions[currentQuizQuestionIndex];
                   const userAnswer = userQuizAnswers[currentQuizQuestionIndex];
                   const hasAnswered = userAnswer !== undefined;
                   const isCorrect = userAnswer === q.correctIndex;
 
                   return (
-                    <div style={{
-                      background: 'var(--bg-surface-elevated)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '1.15rem',
-                      marginBottom: '1rem'
-                    }}>
-                      <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem', lineHeight: 1.45 }}>
+                    <div style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '1.25rem', marginBottom: '1rem' }}>
+                      <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1.15rem', lineHeight: 1.5 }}>
                         {q.question}
                       </h3>
 
-                      {/* Options */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
-                        {q.options?.map((option, optIdx) => {
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                        {q.options?.map((opt, optIdx) => {
                           const isSelected = userAnswer === optIdx;
                           const isThisCorrect = optIdx === q.correctIndex;
 
@@ -2193,196 +1081,248 @@ export default function NotebookStudio({
                               style={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '0.65rem',
-                                padding: '0.65rem 0.85rem',
+                                gap: '0.75rem',
+                                padding: '0.75rem 1rem',
                                 borderRadius: 'var(--radius-sm)',
                                 border: `1.5px solid ${btnBorder}`,
                                 background: btnBg,
                                 color: btnColor,
-                                fontSize: '0.84rem',
+                                fontSize: '0.88rem',
                                 textAlign: 'left',
-                                cursor: hasAnswered ? 'default' : 'pointer',
-                                transition: 'all 0.15s ease'
+                                cursor: hasAnswered ? 'default' : 'pointer'
                               }}
                             >
                               <span style={{
-                                width: '22px',
-                                height: '22px',
+                                width: '24px',
+                                height: '24px',
                                 borderRadius: '50%',
-                                background: hasAnswered && isThisCorrect 
-                                  ? '#10b981' 
-                                  : hasAnswered && isSelected 
-                                    ? '#ef4444' 
-                                    : 'rgba(255,255,255,0.08)',
-                                color: (hasAnswered && (isThisCorrect || isSelected)) ? '#fff' : 'var(--text-secondary)',
+                                background: hasAnswered && isThisCorrect ? '#10b981' : hasAnswered && isSelected ? '#ef4444' : 'rgba(255,255,255,0.08)',
+                                color: '#fff',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: '0.72rem',
+                                fontSize: '0.74rem',
                                 fontWeight: 800,
                                 flexShrink: 0
                               }}>
                                 {String.fromCharCode(65 + optIdx)}
                               </span>
-                              <span style={{ flex: 1 }}>{option}</span>
-                              {hasAnswered && isThisCorrect && <CheckCircle2 size={16} style={{ color: '#10b981' }} />}
-                              {hasAnswered && isSelected && !isThisCorrect && <XCircle size={16} style={{ color: '#ef4444' }} />}
+                              <span style={{ flex: 1 }}>{opt}</span>
+                              {hasAnswered && isThisCorrect && <CheckCircle2 size={18} style={{ color: '#10b981' }} />}
+                              {hasAnswered && isSelected && !isThisCorrect && <XCircle size={18} style={{ color: '#ef4444' }} />}
                             </button>
                           );
                         })}
                       </div>
 
-                      {/* Explanation Reveal */}
                       {hasAnswered && (
                         <div style={{
                           marginTop: '1rem',
-                          padding: '0.75rem',
+                          padding: '0.85rem',
                           borderRadius: 'var(--radius-sm)',
                           background: isCorrect ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
                           border: `1px solid ${isCorrect ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
                         }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.3rem', fontSize: '0.8rem', fontWeight: 800, color: isCorrect ? '#10b981' : '#ef4444' }}>
-                            {isCorrect ? <CheckCircle2 size={15} /> : <XCircle size={15} />}
-                            {isCorrect ? 'Correct! Outstanding comprehension.' : 'Incorrect. Review the rationale below:'}
+                          <div style={{ fontSize: '0.82rem', fontWeight: 800, color: isCorrect ? '#10b981' : '#ef4444', marginBottom: '0.3rem' }}>
+                            {isCorrect ? '✓ Correct! Great insight.' : '✗ Incorrect. Review the rationale below:'}
                           </div>
-                          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
                             {q.explanation}
                           </p>
                         </div>
                       )}
 
-                      {/* Question Navigation */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.15rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.25rem' }}>
                         <button
                           className="btn-ghost"
-                          style={{ fontSize: '0.78rem', padding: '0.4rem 0.75rem' }}
+                          style={{ fontSize: '0.82rem', padding: '0.45rem 0.85rem' }}
                           disabled={currentQuizQuestionIndex === 0}
                           onClick={() => setCurrentQuizQuestionIndex(prev => Math.max(0, prev - 1))}
                         >
-                          <ChevronLeft size={15} /> Previous Question
+                          <ChevronLeft size={16} /> Prev Question
                         </button>
 
                         <button
                           className="btn-gradient"
-                          style={{ fontSize: '0.78rem', padding: '0.4rem 0.85rem' }}
-                          disabled={currentQuizQuestionIndex === currentOutput.parsedData.questions.length - 1}
-                          onClick={() => setCurrentQuizQuestionIndex(prev => Math.min(currentOutput.parsedData.questions.length - 1, prev + 1))}
+                          style={{ fontSize: '0.82rem', padding: '0.45rem 1rem' }}
+                          disabled={currentQuizQuestionIndex === output.parsedData.questions.length - 1}
+                          onClick={() => setCurrentQuizQuestionIndex(prev => Math.min(output.parsedData.questions.length - 1, prev + 1))}
                         >
-                          Next Question <ChevronRight size={15} />
+                          Next Question <ChevronRight size={16} />
                         </button>
                       </div>
                     </div>
                   );
                 })()}
               </div>
-            ) : currentOutput ? (
-              <div style={{ background: 'var(--bg-surface-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
-                <StudioMarkdownViewer text={currentOutput.content} />
-              </div>
-            ) : null}
-          </div>
-        )}
+            ) : <StudioMarkdownViewer text={output.content} />
+          )}
 
-        {/* ============================================================== */}
-        {/* 8. INFOGRAPHIC                                                 */}
-        {/* ============================================================== */}
-        {activeTab === 'infographic' && (
-          <div>
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(234, 88, 12, 0.08) 100%)',
-              border: '1px solid rgba(245, 158, 11, 0.25)',
-              borderRadius: 'var(--radius-md)',
-              padding: '1rem',
-              marginBottom: '1rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <BarChart3 size={18} style={{ color: '#f59e0b' }} />
-                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Visual Data Infographic</span>
-                </div>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                  Metrics & Pillars
-                </span>
-              </div>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '0.85rem' }}>
-                Distill your sources into an executive visual dashboard with stat counters, core pillars, and summary takeaways.
-              </p>
-
-              <button
-                className="btn-gradient"
-                style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center', padding: '0.55rem' }}
-                onClick={() => handleGenerate('infographic')}
-                disabled={loading || sources.length === 0}
-              >
-                {loading ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <RefreshCw size={14} className="spin-animate" /> Designing Infographic...
-                  </span>
-                ) : (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <Sparkles size={14} /> {currentOutput ? 'Regenerate Infographic' : 'Generate Infographic'}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {/* Infographic Dashboard */}
-            {currentOutput?.parsedData?.stats ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {/* Header banner */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
-                      {currentOutput.parsedData.title || 'Knowledge Infographic'}
-                    </h3>
-                    {currentOutput.parsedData.tagline && (
-                      <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>
-                        {currentOutput.parsedData.tagline}
-                      </p>
-                    )}
-                  </div>
+          {/* ============================================================== */}
+          {/* MIND MAP                                                       */}
+          {/* ============================================================== */}
+          {toolId === 'mind-map' && (
+            output?.parsedData?.branches ? (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
                   <div style={{ display: 'flex', gap: '0.35rem' }}>
                     <button
-                      className="composer-btn-icon"
-                      style={{ width: '28px', height: '28px' }}
-                      title="Copy infographic"
-                      onClick={() => handleCopyContent(currentOutput.content)}
+                      onClick={() => setMindMapViewMode('visual')}
+                      style={{
+                        fontSize: '0.74rem',
+                        fontWeight: 700,
+                        padding: '0.25rem 0.65rem',
+                        borderRadius: '4px',
+                        border: mindMapViewMode === 'visual' ? '1px solid #8b5cf6' : '1px solid var(--border-subtle)',
+                        background: mindMapViewMode === 'visual' ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                        color: mindMapViewMode === 'visual' ? '#8b5cf6' : 'var(--text-secondary)',
+                        cursor: 'pointer'
+                      }}
                     >
-                      {copied ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
+                      Visual Map
                     </button>
-                    <button
-                      className="composer-btn-icon"
-                      style={{ width: '28px', height: '28px' }}
-                      title="Save to Notes"
-                      onClick={() => handleSaveToNotesCurrent('Infographic Data', currentOutput.content)}
-                    >
-                      <StickyNote size={14} />
-                    </button>
+                    {output.parsedData.mermaid && (
+                      <button
+                        onClick={() => setMindMapViewMode('mermaid')}
+                        style={{
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          padding: '0.25rem 0.65rem',
+                          borderRadius: '4px',
+                          border: mindMapViewMode === 'mermaid' ? '1px solid #8b5cf6' : '1px solid var(--border-subtle)',
+                          background: mindMapViewMode === 'mermaid' ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                          color: mindMapViewMode === 'mermaid' ? '#8b5cf6' : 'var(--text-secondary)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Mermaid Code
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                {/* Big Stat Metric Counters */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.65rem' }}>
-                  {currentOutput.parsedData.stats.map((st, stIdx) => (
+                {mindMapViewMode === 'visual' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                    <div style={{
+                      background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(99, 102, 241, 0.2) 100%)',
+                      border: '2px solid #8b5cf6',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '1rem',
+                      textAlign: 'center'
+                    }}>
+                      <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#a78bfa', textTransform: 'uppercase' }}>
+                        CENTRAL TOPIC
+                      </span>
+                      <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-primary)', margin: '0.25rem 0' }}>
+                        {output.parsedData.centralTopic || 'Core Subject'}
+                      </h3>
+                      {output.parsedData.summary && (
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0 }}>
+                          {output.parsedData.summary}
+                        </p>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem' }}>
+                      {output.parsedData.branches.map((branch, bIdx) => (
+                        <div
+                          key={bIdx}
+                          style={{
+                            background: 'var(--bg-surface-elevated)',
+                            border: '1px solid var(--border-subtle)',
+                            borderLeft: '3px solid #8b5cf6',
+                            borderRadius: 'var(--radius-sm)',
+                            padding: '0.85rem'
+                          }}
+                        >
+                          <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
+                            {branch.title}
+                          </h4>
+                          {branch.summary && (
+                            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.45, marginBottom: '0.55rem' }}>
+                              {branch.summary}
+                            </p>
+                          )}
+                          {branch.subTopics && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                              {branch.subTopics.map((sub, sIdx) => (
+                                <span
+                                  key={sIdx}
+                                  style={{
+                                    fontSize: '0.74rem',
+                                    padding: '0.2rem 0.55rem',
+                                    borderRadius: '9999px',
+                                    background: 'rgba(139, 92, 246, 0.1)',
+                                    color: '#c4b5fd',
+                                    border: '1px solid rgba(139, 92, 246, 0.25)'
+                                  }}
+                                >
+                                  {sub}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <pre style={{
+                    background: 'var(--bg-app)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '1rem',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.82rem',
+                    color: 'var(--text-primary)',
+                    whiteSpace: 'pre-wrap',
+                    overflowX: 'auto'
+                  }}>
+                    {output.parsedData.mermaid}
+                  </pre>
+                )}
+              </div>
+            ) : <StudioMarkdownViewer text={output.content} />
+          )}
+
+          {/* ============================================================== */}
+          {/* INFOGRAPHIC                                                    */}
+          {/* ============================================================== */}
+          {toolId === 'infographic' && (
+            output?.parsedData?.stats ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)', marginBottom: '0.3rem' }}>
+                    {output.parsedData.title || 'Infographic Overview'}
+                  </h3>
+                  {output.parsedData.tagline && (
+                    <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0 }}>
+                      {output.parsedData.tagline}
+                    </p>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                  {output.parsedData.stats.map((st, stIdx) => (
                     <div
                       key={stIdx}
                       style={{
                         background: 'var(--bg-surface-elevated)',
-                        border: '1px solid rgba(245, 158, 11, 0.3)',
+                        border: '1px solid rgba(245, 158, 11, 0.35)',
                         borderRadius: 'var(--radius-md)',
-                        padding: '0.85rem 0.65rem',
+                        padding: '1rem 0.85rem',
                         textAlign: 'center',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+                        boxShadow: '0 4px 15px rgba(0,0,0,0.08)'
                       }}
                     >
-                      <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#f59e0b', lineHeight: 1.1 }}>
+                      <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#f59e0b', lineHeight: 1.1 }}>
                         {st.value}
                       </div>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.3rem' }}>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.35rem' }}>
                         {st.label}
                       </div>
                       {st.trend && (
-                        <div style={{ fontSize: '0.65rem', color: '#10b981', marginTop: '0.2rem', fontWeight: 600 }}>
+                        <div style={{ fontSize: '0.7rem', color: '#10b981', marginTop: '0.2rem', fontWeight: 600 }}>
                           ↑ {st.trend}
                         </div>
                       )}
@@ -2390,191 +1330,142 @@ export default function NotebookStudio({
                   ))}
                 </div>
 
-                {/* Core Pillars */}
-                {currentOutput.parsedData.pillars && currentOutput.parsedData.pillars.length > 0 && (
-                  <div>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      CORE ARCHITECTURAL PILLARS
+                {output.parsedData.pillars && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      Core Pillars
                     </span>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '0.45rem' }}>
-                      {currentOutput.parsedData.pillars.map((pl, pIdx) => (
-                        <div
-                          key={pIdx}
+                    {output.parsedData.pillars.map((pl, pIdx) => (
+                      <div key={pIdx} style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', borderLeft: '3px solid #f59e0b', borderRadius: 'var(--radius-sm)', padding: '0.9rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                          <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)' }}>{pl.title}</h4>
+                          {pl.badge && (
+                            <span style={{ fontSize: '0.68rem', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '0.12rem 0.45rem', borderRadius: '4px', fontWeight: 700 }}>
+                              {pl.badge}
+                            </span>
+                          )}
+                        </div>
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                          {pl.description}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : <StudioMarkdownViewer text={output.content} />
+          )}
+
+          {/* ============================================================== */}
+          {/* REPORTS                                                        */}
+          {/* ============================================================== */}
+          {toolId === 'reports' && (
+            <div style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '1.5rem' }}>
+              <StudioMarkdownViewer text={output.content} />
+            </div>
+          )}
+
+          {/* ============================================================== */}
+          {/* AUDIO OVERVIEW                                                 */}
+          {/* ============================================================== */}
+          {toolId === 'audio-overview' && (
+            <div>
+              {audioTurns.length > 0 && (
+                <div style={{
+                  background: 'var(--bg-surface-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '1rem',
+                  marginBottom: '1rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <Volume2 size={16} /> 
+                      {isPlayingAudio 
+                        ? `Playing: ${audioTurns[currentSpeakerTurn]?.speaker || 'Host'} speaking...` 
+                        : isPausedAudio ? 'Audio Paused' : 'Voice Playback Ready'}
+                    </span>
+                    <div style={{ display: 'flex', gap: '0.2rem' }}>
+                      {[1, 1.25, 1.5].map(s => (
+                        <button
+                          key={s}
+                          onClick={() => setAudioSpeed(s)}
                           style={{
-                            background: 'var(--bg-surface-elevated)',
-                            border: '1px solid var(--border-subtle)',
-                            borderLeft: '3px solid #f59e0b',
-                            borderRadius: 'var(--radius-sm)',
-                            padding: '0.85rem'
+                            fontSize: '0.7rem',
+                            padding: '0.12rem 0.4rem',
+                            borderRadius: '4px',
+                            border: audioSpeed === s ? '1px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
+                            background: audioSpeed === s ? 'var(--accent-primary)' : 'transparent',
+                            color: '#fff',
+                            cursor: 'pointer'
                           }}
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
-                            <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                              {pl.title}
-                            </h4>
-                            {pl.badge && (
-                              <span style={{ fontSize: '0.65rem', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 700 }}>
-                                {pl.badge}
-                              </span>
-                            )}
-                          </div>
-                          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                            {pl.description}
-                          </p>
-                        </div>
+                          {s}x
+                        </button>
                       ))}
                     </div>
                   </div>
-                )}
 
-                {/* Key Takeaways */}
-                {currentOutput.parsedData.takeaways && currentOutput.parsedData.takeaways.length > 0 && (
-                  <div style={{
-                    background: 'var(--bg-app)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: '0.85rem'
-                  }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--accent-primary)', textTransform: 'uppercase' }}>
-                      ✦ KEY STRATEGIC TAKEAWAYS
-                    </span>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginTop: '0.45rem' }}>
-                      {currentOutput.parsedData.takeaways.map((tk, tIdx) => (
-                        <div key={tIdx} style={{ display: 'flex', gap: '0.5rem', fontSize: '0.8rem', lineHeight: 1.5 }}>
-                          <span style={{ color: '#10b981', fontWeight: 800 }}>✓</span>
-                          <span style={{ color: 'var(--text-primary)' }}>{tk}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : currentOutput ? (
-              <div style={{ background: 'var(--bg-surface-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
-                <StudioMarkdownViewer text={currentOutput.content} />
-              </div>
-            ) : null}
-          </div>
-        )}
-
-        {/* ============================================================== */}
-        {/* 9. NOTES & SCRATCHPAD                                          */}
-        {/* ============================================================== */}
-        {activeTab === 'notes' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 800 }}>Research Notes ({notes.length})</span>
-              {notes.length > 0 && (
-                <button
-                  onClick={handleExportNotes}
-                  className="btn-ghost"
-                  style={{ fontSize: '0.72rem', padding: '0.25rem 0.55rem', gap: '0.3rem' }}
-                  title="Export notes as Markdown"
-                >
-                  <Download size={12} /> Export .md
-                </button>
-              )}
-            </div>
-
-            {/* Quick Note Creator */}
-            <form onSubmit={handleCreateManualNote} style={{
-              background: 'var(--bg-surface-elevated)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-md)',
-              padding: '0.85rem',
-              marginBottom: '1rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.5rem'
-            }}>
-              <input
-                type="text"
-                placeholder="Note Title (optional)..."
-                value={newNoteTitle}
-                onChange={e => setNewNoteTitle(e.target.value)}
-                style={{
-                  background: 'var(--bg-app)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '0.45rem 0.65rem',
-                  fontSize: '0.82rem',
-                  color: 'var(--text-primary)'
-                }}
-              />
-              <textarea
-                placeholder="Type your thought, hypothesis, or insight..."
-                rows={3}
-                value={newNoteInput}
-                onChange={e => setNewNoteInput(e.target.value)}
-                style={{
-                  background: 'var(--bg-app)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '0.55rem 0.65rem',
-                  fontSize: '0.82rem',
-                  color: 'var(--text-primary)',
-                  resize: 'vertical'
-                }}
-              />
-              <button
-                type="submit"
-                className="btn-gradient"
-                style={{ fontSize: '0.78rem', justifyContent: 'center', padding: '0.45rem' }}
-                disabled={!newNoteInput.trim()}
-              >
-                <Plus size={14} /> Add Note
-              </button>
-            </form>
-
-            {/* Notes List */}
-            {notes.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}>
-                <StickyNote size={32} style={{ margin: '0 auto 0.5rem auto', opacity: 0.4 }} />
-                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>No Notes Yet</div>
-                <p style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>
-                  Save answers from the chat or create custom notes to organize your insights.
-                </p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                {notes.map(note => (
-                  <div
-                    key={note.id}
-                    style={{
-                      background: 'var(--bg-surface-elevated)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '0.85rem'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.35rem' }}>
-                      <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        {note.title}
-                      </span>
-                      <button
-                        onClick={() => onDeleteNote(note.id)}
-                        className="composer-btn-icon"
-                        style={{ width: '22px', height: '22px', color: '#ef4444' }}
-                        title="Delete note"
-                      >
-                        <Trash2 size={12} />
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    {!isPlayingAudio ? (
+                      <button className="btn-gradient" style={{ flex: 1, fontSize: '0.82rem', justifyContent: 'center', padding: '0.5rem' }} onClick={handleStartAudio}>
+                        <Play size={16} /> {isPausedAudio ? 'Resume Dialogue' : 'Play Audio Overview'}
                       </button>
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                      {note.content}
-                    </div>
-                    <div style={{ marginTop: '0.45rem', fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                      {note.timestamp}
-                    </div>
+                    ) : (
+                      <button className="btn-ghost" style={{ flex: 1, fontSize: '0.82rem', justifyContent: 'center', padding: '0.5rem', borderColor: 'var(--accent-amber)', color: 'var(--accent-amber)' }} onClick={handlePauseAudio}>
+                        <Pause size={16} /> Pause
+                      </button>
+                    )}
+                    <button className="btn-ghost" style={{ width: '36px', height: '36px', justifyContent: 'center', padding: 0 }} onClick={handleStopAudio} title="Stop Audio">
+                      <Square size={14} />
+                    </button>
                   </div>
-                ))}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {audioTurns.map((turn, idx) => {
+                  const isActive = currentSpeakerTurn === idx;
+                  const isAlex = turn.speaker === 'Alex';
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: '0.85rem 1rem',
+                        borderRadius: 'var(--radius-sm)',
+                        background: isActive ? 'rgba(59, 130, 246, 0.2)' : isAlex ? 'var(--bg-surface-elevated)' : 'rgba(255, 255, 255, 0.03)',
+                        border: isActive ? '1px solid #3b82f6' : '1px solid var(--border-subtle)'
+                      }}
+                    >
+                      <span style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 800,
+                        padding: '0.12rem 0.45rem',
+                        borderRadius: '4px',
+                        background: isAlex ? 'rgba(56, 189, 248, 0.2)' : 'rgba(244, 114, 182, 0.2)',
+                        color: isAlex ? '#38bdf8' : '#f472b6',
+                        display: 'inline-block',
+                        marginBottom: '0.35rem'
+                      }}>
+                        {turn.speaker}
+                      </span>
+                      <div style={{ fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--text-primary)' }}>
+                        {turn.text}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
 
         </div>
       </div>
     </div>
   );
+}
+
+// Default export wrapper
+export default function NotebookStudio(props) {
+  return <StudioOptionsDrawer {...props} />;
 }

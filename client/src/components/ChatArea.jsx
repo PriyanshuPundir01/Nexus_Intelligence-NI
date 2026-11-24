@@ -19,7 +19,6 @@ import {
   StickyNote,
   Headphones,
   BookOpen,
-  Video,
   Presentation,
   Network,
   Layers,
@@ -277,11 +276,10 @@ export default function ChatArea({
                     {[
                       { id: 'audio-overview', label: 'Audio Overview', icon: Headphones, color: '#3b82f6' },
                       { id: 'slide-deck', label: 'Slide deck', icon: Presentation, color: '#d946ef' },
-                      { id: 'video-overview', label: 'Video Overview', icon: Video, color: '#10b981' },
-                      { id: 'flashcards', label: 'Flashcards', icon: Layers, color: '#f97316' },
-                      { id: 'quiz', label: 'Quiz', icon: HelpCircle, color: '#06b6d4' },
                       { id: 'mind-map', label: 'Mind Map', icon: Network, color: '#8b5cf6' },
                       { id: 'reports', label: 'Reports', icon: FileText, color: '#ec4899', badge: 'New!' },
+                      { id: 'flashcards', label: 'Flashcards', icon: Layers, color: '#f97316' },
+                      { id: 'quiz', label: 'Quiz', icon: HelpCircle, color: '#06b6d4' },
                       { id: 'infographic', label: 'Infographic', icon: BarChart3, color: '#f59e0b' }
                     ].map(t => {
                       const Icon = t.icon;

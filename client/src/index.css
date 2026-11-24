@@ -251,17 +251,85 @@ body {
   flex: 1;
   height: calc(100vh - 64px);
   overflow: hidden;
+  position: relative;
+}
+
+/* Vertical Resizer Handles for Sliding Panels */
+.resizer-handle {
+  width: 6px;
+  cursor: col-resize;
+  position: relative;
+  background: transparent;
+  transition: background 0.15s ease;
+  z-index: 25;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.resizer-handle:hover,
+.resizer-handle:active {
+  background: rgba(99, 102, 241, 0.25);
+}
+
+.resizer-handle .resizer-line {
+  width: 2px;
+  height: 36px;
+  border-radius: 2px;
+  background: var(--border-glow);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.resizer-handle:hover .resizer-line,
+.resizer-handle:active .resizer-line {
+  opacity: 1;
+}
+
+/* Floating Panel Toggle Pills */
+.panel-toggle-pill {
+  position: absolute;
+  top: 10px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-full);
+  color: var(--accent-primary);
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: all 0.2s ease;
+}
+
+.panel-toggle-pill:hover {
+  transform: translateY(-1px);
+  background: var(--bg-surface);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+}
+
+.panel-toggle-pill.left {
+  left: 12px;
+}
+
+.panel-toggle-pill.right {
+  right: 12px;
 }
 
 /* Left Sidebar (Sources Drawer) */
 .sources-sidebar {
-  width: 340px;
+  width: 280px;
   background: var(--bg-surface);
   border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  transition: all 0.3s ease;
 }
 
 @media (max-width: 900px) {

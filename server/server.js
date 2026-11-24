@@ -365,6 +365,7 @@ function chunkText(text, sourceId, userId, sourceName, type, chunkSize = 1000, o
         userId: userId || 'public',
         sourceName: sanitizeText(sourceName, 120),
         type,
+      tool: type,
         text: chunkContent,
         charCount: chunkContent.length
       });
@@ -460,7 +461,7 @@ async function callGroq(parts, systemInstruction = '', temperature = 0.2) {
   const hasImage = Array.isArray(parts) && parts.some(p => p.inlineData);
   const models = hasImage 
     ? ['llama-3.2-11b-vision-preview', 'llama-3.2-90b-vision-preview']
-    : ['qwen/qwen3.8-27b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
+    : ['qwen/qwen3.8-27b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b'];
 
   let lastErr = null;
   for (const model of models) {
@@ -627,41 +628,26 @@ async function callGeminiDirect(parts, systemInstruction = '', temperature = 0.2
   throw lastError || new Error('All Gemini candidate models failed.');
 }
 
-// 4. Universal Unified AI Dispatcher with Automatic Provider Failover
+// 4. Universal Unified AI Dispatcher with Automatic Provider Failover (Prioritizing ultra-fast Groq LPU)
 async function callAI(parts, systemInstruction = '', temperature = 0.2) {
-  // If specific provider requested via environment
-  if (DEFAULT_AI_PROVIDER === 'groq' && GROQ_API_KEY) {
-    try {
-      return await callGroq(parts, systemInstruction, temperature);
-    } catch (e) {
-      if (NODE_ENV !== 'production') console.warn('[AI Dispatcher] Groq failed, attempting failover...', e.message);
-    }
-  } else if (DEFAULT_AI_PROVIDER === 'openrouter' && OPENROUTER_API_KEY) {
-    try {
-      return await callOpenRouter(parts, systemInstruction, temperature);
-    } catch (e) {
-      if (NODE_ENV !== 'production') console.warn('[AI Dispatcher] OpenRouter failed, attempting failover...', e.message);
-    }
-  }
-
-  // Priority 1: Google Gemini (if key configured and not in rate-limit cooldown)
-  if (GOOGLE_API_KEY && Date.now() >= geminiCooldownUntil) {
-    try {
-      return await callGeminiDirect(parts, systemInstruction, temperature);
-    } catch (geminiErr) {
-      if (NODE_ENV !== 'production') {
-        console.warn('[AI Dispatcher] Gemini models failed, attempting automatic failover to alternative providers...', geminiErr.message);
-      }
-    }
-  }
-
-  // Priority 2: Groq (if key configured)
+  // Priority 1: Groq Cloud Engine (Ultra-fast LPU inference: ~800ms)
   if (GROQ_API_KEY) {
     try {
       return await callGroq(parts, systemInstruction, temperature);
     } catch (groqErr) {
       if (NODE_ENV !== 'production') {
-        console.warn('[AI Dispatcher] Groq failover failed...', groqErr.message);
+        console.warn('[AI Dispatcher] Groq failed, attempting Gemini failover...', groqErr.message);
+      }
+    }
+  }
+
+  // Priority 2: Google Gemini (if key configured and not in rate-limit cooldown)
+  if (GOOGLE_API_KEY && Date.now() >= geminiCooldownUntil) {
+    try {
+      return await callGeminiDirect(parts, systemInstruction, temperature);
+    } catch (geminiErr) {
+      if (NODE_ENV !== 'production') {
+        console.warn('[AI Dispatcher] Gemini models failed, attempting automatic failover...', geminiErr.message);
       }
     }
   }
@@ -1323,7 +1309,8 @@ app.get('/api/sources/:id/chunks', optionalAuth, (req, res) => {
 // 9. POST /api/studio/generate - Generate NotebookLM Studio Artifacts (Audio Overview / Podcast, Study Guide, FAQ, Timeline, Briefing Doc)
 app.post('/api/studio/generate', optionalAuth, aiLimiter, async (req, res) => {
   try {
-    const { type = 'podcast', selectedSourceIds, focus } = req.body;
+    const { type: rawType, tool, selectedSourceIds, focus } = req.body;
+    const type = tool || rawType || 'audio-overview';
     const userId = req.user?.id || 'guest';
 
     let availableChunks = vectorStore.chunks.filter(c => c.userId === userId);
@@ -1393,32 +1380,6 @@ Respond STRICTLY with a valid JSON object matching this schema (no surrounding m
 }`;
 
       userPrompt = `Generate a structured slide deck presentation from these sources:
-
-${contextFormatted}`;
-    } else if (type === 'video-overview') {
-      expectsJson = true;
-      systemPrompt = `You are a creative video director and documentary producer for Google NotebookLM Studio.
-Create a compelling 2-3 minute video overview storyboard and narration script based strictly on the provided sources.
-
-OUTPUT INSTRUCTION:
-Respond STRICTLY with a valid JSON object matching this schema (no surrounding markdown or backticks):
-{
-  "videoTitle": "Engaging Video Title",
-  "estimatedDuration": "2:30",
-  "overview": "Brief summary of the video's thesis",
-  "scenes": [
-    {
-      "sceneNumber": 1,
-      "timestamp": "0:00 - 0:25",
-      "sceneTitle": "Opening Hook & Core Problem",
-      "visualPrompt": "Cinematic visual description: camera movement, graphics, or b-roll animation",
-      "onScreenText": "Headline text or stat displayed on screen",
-      "narration": "Professional voiceover narration script spoken clearly and compellingly"
-    }
-  ]
-}`;
-
-      userPrompt = `Produce a cinematic video overview storyboard based strictly on these sources:
 
 ${contextFormatted}`;
     } else if (type === 'mind-map') {
@@ -1643,7 +1604,7 @@ ${contextFormatted}`;
       return res.status(400).json({ error: `Unknown studio type: ${type}` });
     }
 
-    const generatedContent = await callGemini(userPrompt, systemPrompt, 0.3);
+    const generatedContent = await callAI(userPrompt, systemPrompt, 0.3);
 
     // Safely parse JSON if expected or detected
     let parsedData = null;
@@ -1670,6 +1631,7 @@ ${contextFormatted}`;
     res.json({
       success: true,
       type,
+      tool: type,
       content: generatedContent,
       parsedData,
       sourceCount: contextChunks.length,

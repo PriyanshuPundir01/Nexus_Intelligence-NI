@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Sparkles, X } from 'lucide-react';
+import { MessageSquare, Sparkles, X, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
 import Navbar from './components/Navbar';
 import SourcesDrawer from './components/SourcesDrawer';
 import ChatArea from './components/ChatArea';
 import ChatInput from './components/ChatInput';
 import SourceModal from './components/SourceModal';
 import AuthModal from './components/AuthModal';
-import NotebookStudio from './components/NotebookStudio';
+import { StudioOptionsDrawer, StudioResultCanvas, STUDIO_TOOLS } from './components/NotebookStudio';
 import SourceInspectorModal from './components/SourceInspectorModal';
 import SignInPage from './pages/SignInPage';
 import SignUpPage from './pages/SignUpPage';
@@ -20,8 +20,96 @@ export default function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [modalInitialTab, setModalInitialTab] = useState('pdf');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isStudioOpen, setIsStudioOpen] = useState(false);
-  const [activeStudioTab, setActiveStudioTab] = useState('audio-overview');
+
+  // Resizable sliding panel state (Left Sources & Right Studio)
+  const [leftWidth, setLeftWidth] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ni_left_width');
+      return saved ? Math.max(200, Math.min(500, parseInt(saved, 10))) : 280;
+    } catch {
+      return 280;
+    }
+  });
+  const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
+
+  const [rightWidth, setRightWidth] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ni_right_width');
+      return saved ? Math.max(240, Math.min(550, parseInt(saved, 10))) : 320;
+    } catch {
+      return 320;
+    }
+  });
+  const [isStudioOpen, setIsStudioOpen] = useState(true);
+
+  // Center Stage Workspace: 'chat' | 'studio'
+  const [activeCenterView, setActiveCenterView] = useState('chat');
+  const [activeStudioTool, setActiveStudioTool] = useState('slide-deck');
+
+  // Studio generated outputs cache
+  const [studioOutputs, setStudioOutputs] = useState({
+    'audio-overview': null,
+    'slide-deck': null,
+    'mind-map': null,
+    'reports': null,
+    'flashcards': null,
+    'quiz': null,
+    'infographic': null
+  });
+  const [studioLoading, setStudioLoading] = useState(false);
+
+  // Left Panel Drag Resize Handler
+  const handleLeftResizeStart = (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = leftWidth;
+
+    const onMouseMove = (moveEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const newWidth = Math.max(200, Math.min(500, startWidth + delta));
+      setLeftWidth(newWidth);
+      localStorage.setItem('ni_left_width', String(newWidth));
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto';
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  // Right Panel Drag Resize Handler
+  const handleRightResizeStart = (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = rightWidth;
+
+    const onMouseMove = (moveEvent) => {
+      const delta = startX - moveEvent.clientX; // dragging left expands right panel
+      const newWidth = Math.max(240, Math.min(550, startWidth + delta));
+      setRightWidth(newWidth);
+      localStorage.setItem('ni_right_width', String(newWidth));
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto';
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
   const [inspectedSource, setInspectedSource] = useState(null);
   const [theme, setTheme] = useState('dark');
 
@@ -268,38 +356,88 @@ export default function App() {
     }
   };
 
+  const handleGenerateStudio = async (toolId) => {
+    if (!toolId || studioLoading) return;
+    setStudioLoading(true);
+    setActiveStudioTool(toolId);
+    setActiveCenterView('studio');
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(token)
+      };
+
+      const res = await fetch('/api/studio/generate', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          tool: toolId,
+          selectedSourceIds: selectedSourceIds.length > 0 ? selectedSourceIds : undefined
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Studio generation failed');
+
+      setStudioOutputs(prev => ({
+        ...prev,
+        [toolId]: {
+          content: data.content,
+          parsedData: data.parsedData || null,
+          sourceCount: data.sourceCount || sources.length,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      }));
+    } catch (err) {
+      console.error('Studio generation error:', err);
+      alert(`Studio generation error: ${err.message}`);
+    } finally {
+      setStudioLoading(false);
+    }
+  };
+
   const handleSendMessage = async (queryText) => {
     if (!queryText || loading) return;
 
-    // Detect Studio Task triggers to open Studio in the center directly above the search bar
+    // Detect Studio Task triggers to generate studio artifact in center above search bar
     const lower = queryText.toLowerCase().trim();
-    if (lower.includes('video overview') || lower.includes('video script') || lower.includes('make video') || lower.includes('create video')) {
-      setActiveStudioTab('video-overview');
+    if (lower.includes('flashcard') || lower.includes('flash cards')) {
       setIsStudioOpen(true);
-    } else if (lower.includes('flashcard') || lower.includes('flash cards')) {
-      setActiveStudioTab('flashcards');
-      setIsStudioOpen(true);
+      handleGenerateStudio('flashcards');
+      return;
     } else if (lower.includes('quiz') || lower.includes('practice test') || lower.includes('assessment')) {
-      setActiveStudioTab('quiz');
       setIsStudioOpen(true);
+      handleGenerateStudio('quiz');
+      return;
     } else if (lower.includes('slide deck') || lower.includes('presentation') || lower.includes('slides')) {
-      setActiveStudioTab('slide-deck');
       setIsStudioOpen(true);
+      handleGenerateStudio('slide-deck');
+      return;
     } else if (lower.includes('mind map') || lower.includes('concept map')) {
-      setActiveStudioTab('mind-map');
       setIsStudioOpen(true);
+      handleGenerateStudio('mind-map');
+      return;
     } else if (lower.includes('infographic') || lower.includes('stats dashboard')) {
-      setActiveStudioTab('infographic');
       setIsStudioOpen(true);
+      handleGenerateStudio('infographic');
+      return;
     } else if (lower.includes('audio overview') || lower.includes('podcast') || lower.includes('deep dive')) {
-      setActiveStudioTab('audio-overview');
       setIsStudioOpen(true);
+      handleGenerateStudio('audio-overview');
+      return;
     } else if (lower.includes('report') || lower.includes('briefing doc')) {
-      setActiveStudioTab('reports');
       setIsStudioOpen(true);
+      handleGenerateStudio('reports');
+      return;
     } else if (lower === '/studio' || lower === 'studio' || lower === 'open studio') {
       setIsStudioOpen(true);
       return;
+    }
+
+    // Regular Chat: switch center stage back to Chat workspace
+    if (activeCenterView !== 'chat') {
+      setActiveCenterView('chat');
     }
 
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -403,11 +541,14 @@ export default function App() {
         onToggleStudio={() => setIsStudioOpen(!isStudioOpen)}
       />
 
-      {/* Main Split Layout */}
-      <div className="main-layout">
+      {/* Main Split Layout with Resizable Sliding Panels on Both Sides */}
+      <div className="main-layout" style={{ position: 'relative' }}>
         
-        {/* Knowledge Sources Drawer */}
+        {/* 1. LEFT SLIDING PANEL: Knowledge Sources Drawer */}
         <SourcesDrawer 
+          width={leftWidth}
+          isCollapsed={isLeftCollapsed}
+          onToggleCollapse={() => setIsLeftCollapsed(!isLeftCollapsed)}
           sources={sources}
           selectedSourceIds={selectedSourceIds}
           onToggleSelectSource={handleToggleSelectSource}
@@ -418,7 +559,31 @@ export default function App() {
           onInspectSource={src => setInspectedSource(src)}
         />
 
-        {/* Central Workspace: Chat & Studio above Search Bar */}
+        {/* Floating pill to uncollapse left panel if collapsed */}
+        {isLeftCollapsed && (
+          <button
+            onClick={() => setIsLeftCollapsed(false)}
+            className="panel-toggle-pill left"
+            title="Expand Sources Panel"
+          >
+            <Layers size={13} />
+            <span>Sources ({sources.length})</span>
+            <ChevronRight size={12} />
+          </button>
+        )}
+
+        {/* Left Resizer Drag Handle */}
+        {!isLeftCollapsed && (
+          <div
+            className="resizer-handle vertical-resizer left-resizer"
+            onMouseDown={handleLeftResizeStart}
+            title="Drag to resize Sources Panel"
+          >
+            <div className="resizer-line" />
+          </div>
+        )}
+
+        {/* 2. CENTER STAGE: Studio Results Canvas or Chat Area, directly above Search Bar */}
         <div className="chat-container">
           
           {/* Central Workspace Switcher Tabs */}
@@ -431,19 +596,19 @@ export default function App() {
             background: 'var(--bg-app)',
             flexShrink: 0
           }}>
-            <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
               <button
                 type="button"
-                onClick={() => setIsStudioOpen(false)}
+                onClick={() => setActiveCenterView('chat')}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.4rem',
                   padding: '0.35rem 0.75rem',
                   borderRadius: 'var(--radius-sm)',
-                  border: !isStudioOpen ? '1px solid var(--accent-primary)' : '1px solid transparent',
-                  background: !isStudioOpen ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-                  color: !isStudioOpen ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                  border: activeCenterView === 'chat' ? '1px solid var(--accent-primary)' : '1px solid transparent',
+                  background: activeCenterView === 'chat' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                  color: activeCenterView === 'chat' ? 'var(--accent-primary)' : 'var(--text-secondary)',
                   fontSize: '0.8rem',
                   fontWeight: 700,
                   cursor: 'pointer',
@@ -456,16 +621,19 @@ export default function App() {
 
               <button
                 type="button"
-                onClick={() => setIsStudioOpen(true)}
+                onClick={() => {
+                  setActiveCenterView('studio');
+                  if (!isStudioOpen) setIsStudioOpen(true);
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.4rem',
                   padding: '0.35rem 0.75rem',
                   borderRadius: 'var(--radius-sm)',
-                  border: isStudioOpen ? '1px solid #10b981' : '1px solid transparent',
-                  background: isStudioOpen ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-                  color: isStudioOpen ? '#10b981' : 'var(--text-secondary)',
+                  border: activeCenterView === 'studio' ? '1px solid #10b981' : '1px solid transparent',
+                  background: activeCenterView === 'studio' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                  color: activeCenterView === 'studio' ? '#10b981' : 'var(--text-secondary)',
                   fontSize: '0.8rem',
                   fontWeight: 700,
                   cursor: 'pointer',
@@ -473,55 +641,65 @@ export default function App() {
                 }}
               >
                 <Sparkles size={14} />
-                <span>Notebook Studio (8 Tools)</span>
+                <span>Studio Result: {STUDIO_TOOLS.find(t => t.id === activeStudioTool)?.label || 'Slide deck'}</span>
+                {studioOutputs[activeStudioTool] && (
+                  <span style={{ fontSize: '0.62rem', background: '#10b981', color: '#fff', padding: '0.05rem 0.35rem', borderRadius: '4px', fontWeight: 800 }}>
+                    Ready
+                  </span>
+                )}
               </button>
             </div>
 
-            {isStudioOpen && (
+            {/* If Studio Options Drawer on right is closed, allow opening it */}
+            {!isStudioOpen && (
               <button
                 type="button"
-                onClick={() => setIsStudioOpen(false)}
+                onClick={() => setIsStudioOpen(true)}
                 className="btn-ghost"
-                style={{ fontSize: '0.72rem', padding: '0.25rem 0.55rem', gap: '0.3rem' }}
-                title="Return to Chat Stream"
+                style={{ fontSize: '0.72rem', padding: '0.25rem 0.55rem', gap: '0.3rem', color: 'var(--accent-primary)', borderColor: 'var(--border-glow)' }}
+                title="Open Studio Tools Panel"
               >
-                <X size={13} /> Close Studio
+                <Sparkles size={13} /> Studio Tools (7) →
               </button>
             )}
           </div>
 
-          {/* Central Stage: Studio or ChatArea directly above the Search Bar */}
-          {isStudioOpen ? (
-            <NotebookStudio 
-              isOpen={isStudioOpen}
-              onClose={() => setIsStudioOpen(false)}
-              sources={sources}
-              selectedSourceIds={selectedSourceIds}
-              token={token}
-              guestSessionId={guestSessionId}
-              notes={notes}
-              onAddNote={handleAddNote}
-              onDeleteNote={handleDeleteNote}
-              activeTab={activeStudioTab}
-              onTabChange={setActiveStudioTab}
-              onBackToChat={() => setIsStudioOpen(false)}
-            />
-          ) : (
-            <ChatArea 
-              messages={messages}
-              loading={loading}
-              sources={sources}
-              totalChunks={totalChunks}
-              onSelectPrompt={handleSendMessage}
-              onOpenAddModal={handleOpenAddModal}
-              onOpenStudio={(tab) => {
-                if (tab && typeof tab === 'string') setActiveStudioTab(tab);
-                setIsStudioOpen(true);
-              }}
-              onSaveNote={handleAddNote}
-              user={user}
-            />
-          )}
+          {/* Center Stage Body: Renders either Studio Result or Chat */}
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+            {activeCenterView === 'studio' ? (
+              <StudioResultCanvas 
+                toolId={activeStudioTool}
+                output={studioOutputs[activeStudioTool]}
+                sources={sources}
+                onBackToChat={() => setActiveCenterView('chat')}
+                onSaveNote={handleAddNote}
+                onRegenerate={() => handleGenerateStudio(activeStudioTool)}
+                loading={studioLoading}
+              />
+            ) : (
+              <ChatArea 
+                messages={messages}
+                loading={loading}
+                sources={sources}
+                totalChunks={totalChunks}
+                onSelectPrompt={handleSendMessage}
+                onOpenAddModal={handleOpenAddModal}
+                onOpenStudio={(toolId) => {
+                  if (toolId && typeof toolId === 'string') {
+                    setActiveStudioTool(toolId);
+                    setIsStudioOpen(true);
+                    if (studioOutputs[toolId]) {
+                      setActiveCenterView('studio');
+                    } else {
+                      handleGenerateStudio(toolId);
+                    }
+                  }
+                }}
+                onSaveNote={handleAddNote}
+                user={user}
+              />
+            )}
+          </div>
 
           {/* Central Search Bar / Prompt Input at Bottom */}
           <ChatInput 
@@ -530,6 +708,40 @@ export default function App() {
             onOpenAddModal={handleOpenAddModal}
           />
         </div>
+
+        {/* Right Resizer Drag Handle */}
+        {isStudioOpen && (
+          <div
+            className="resizer-handle vertical-resizer right-resizer"
+            onMouseDown={handleRightResizeStart}
+            title="Drag to resize Studio Tools Panel"
+          >
+            <div className="resizer-line" />
+          </div>
+        )}
+
+        {/* 3. RIGHT SLIDING PANEL: Studio Options Drawer (7 Tools & Notes) */}
+        <StudioOptionsDrawer 
+          width={rightWidth}
+          isOpen={isStudioOpen}
+          onClose={() => setIsStudioOpen(false)}
+          activeTool={activeStudioTool}
+          onSelectTool={(toolId) => {
+            setActiveStudioTool(toolId);
+            if (studioOutputs[toolId]) {
+              setActiveCenterView('studio');
+            }
+          }}
+          onGenerate={handleGenerateStudio}
+          loading={studioLoading}
+          sources={sources}
+          selectedSourceIds={selectedSourceIds}
+          studioOutputs={studioOutputs}
+          notes={notes}
+          onAddNote={handleAddNote}
+          onDeleteNote={handleDeleteNote}
+          onOpenResultInCenter={() => setActiveCenterView('studio')}
+        />
 
       </div>
 
