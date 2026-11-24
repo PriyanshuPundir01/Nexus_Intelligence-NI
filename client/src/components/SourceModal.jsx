@@ -23,7 +23,7 @@ export default function SourceModal({
   guestSessionId,
   initialTab = 'pdf'
 }) {
-  const [activeTab, setActiveTab] = useState(initialTab || 'pdf'); // 'pdf' | 'image' | 'link' | 'text'
+  const [activeTab, setActiveTab] = useState(initialTab || 'pdf'); // 'pdf' | 'image' | 'link'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [linkInput, setLinkInput] = useState('');
@@ -33,15 +33,10 @@ export default function SourceModal({
   // Sync tab whenever modal opens with a specific initialTab
   useEffect(() => {
     if (isOpen && initialTab) {
-      setActiveTab(initialTab);
+      setActiveTab(['pdf', 'image', 'link'].includes(initialTab) ? initialTab : 'pdf');
       setError('');
     }
   }, [isOpen, initialTab]);
-
-  // Raw text / code note state
-  const [textTitle, setTextTitle] = useState('');
-  const [textContent, setTextContent] = useState('');
-  const [textType, setTextType] = useState('text'); // 'text' | 'code'
 
   const fileInputRef = useRef(null);
 
@@ -197,41 +192,6 @@ export default function SourceModal({
     }
   };
 
-  const handleIngestText = async (e) => {
-    e.preventDefault();
-    if (!textContent.trim()) {
-      setError('Please paste text or code content to index.');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const headers = getSessionHeaders({ 'Content-Type': 'application/json' });
-
-      const res = await fetch('/api/ingest-text', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          title: textTitle.trim() || (textType === 'code' ? 'Code Snippet' : 'Note'),
-          text: textContent.trim(),
-          type: textType
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to index text');
-
-      try { confetti({ particleCount: 50, spread: 50 }); } catch (_) {}
-      onSourceAdded(data.source);
-      onClose();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card" style={{ maxWidth: '580px' }} onClick={(e) => e.stopPropagation()}>
@@ -242,22 +202,22 @@ export default function SourceModal({
           </button>
         </div>
 
-        {/* Source Type Tabs */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem', marginBottom: '1.25rem' }}>
+        {/* Source Type Tabs: PDF, Image, Link */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '1.25rem' }}>
           <button 
             type="button"
             className={`btn-ghost ${activeTab === 'pdf' ? 'primary' : ''}`}
             style={{ 
               justifyContent: 'center', 
-              fontSize: '0.8rem',
-              padding: '0.5rem 0.3rem',
+              fontSize: '0.82rem',
+              padding: '0.55rem 0.5rem',
               background: activeTab === 'pdf' ? 'var(--accent-primary)' : 'var(--bg-app)',
               color: activeTab === 'pdf' ? '#fff' : 'var(--text-secondary)',
               borderColor: activeTab === 'pdf' ? 'var(--accent-primary)' : 'var(--border-subtle)'
             }}
             onClick={() => { setActiveTab('pdf'); setSelectedFile(null); setImagePreview(null); setError(''); }}
           >
-            <FileText size={14} /> PDF
+            <FileText size={15} /> PDF Document
           </button>
 
           <button 
@@ -265,15 +225,15 @@ export default function SourceModal({
             className={`btn-ghost ${activeTab === 'image' ? 'primary' : ''}`}
             style={{ 
               justifyContent: 'center', 
-              fontSize: '0.8rem',
-              padding: '0.5rem 0.3rem',
+              fontSize: '0.82rem',
+              padding: '0.55rem 0.5rem',
               background: activeTab === 'image' ? 'var(--accent-primary)' : 'var(--bg-app)',
               color: activeTab === 'image' ? '#fff' : 'var(--text-secondary)',
               borderColor: activeTab === 'image' ? 'var(--accent-primary)' : 'var(--border-subtle)'
             }}
             onClick={() => { setActiveTab('image'); setSelectedFile(null); setImagePreview(null); setError(''); }}
           >
-            <ImageIcon size={14} /> Image
+            <ImageIcon size={15} /> Image / Diagram
           </button>
 
           <button 
@@ -281,31 +241,15 @@ export default function SourceModal({
             className={`btn-ghost ${activeTab === 'link' ? 'primary' : ''}`}
             style={{ 
               justifyContent: 'center', 
-              fontSize: '0.8rem',
-              padding: '0.5rem 0.3rem',
+              fontSize: '0.82rem',
+              padding: '0.55rem 0.5rem',
               background: activeTab === 'link' ? 'var(--accent-primary)' : 'var(--bg-app)',
               color: activeTab === 'link' ? '#fff' : 'var(--text-secondary)',
               borderColor: activeTab === 'link' ? 'var(--accent-primary)' : 'var(--border-subtle)'
             }}
             onClick={() => { setActiveTab('link'); setSelectedFile(null); setImagePreview(null); setError(''); }}
           >
-            <LinkIcon size={14} /> Link / YT
-          </button>
-
-          <button 
-            type="button"
-            className={`btn-ghost ${activeTab === 'text' ? 'primary' : ''}`}
-            style={{ 
-              justifyContent: 'center', 
-              fontSize: '0.8rem',
-              padding: '0.5rem 0.3rem',
-              background: activeTab === 'text' ? 'var(--accent-primary)' : 'var(--bg-app)',
-              color: activeTab === 'text' ? '#fff' : 'var(--text-secondary)',
-              borderColor: activeTab === 'text' ? 'var(--accent-primary)' : 'var(--border-subtle)'
-            }}
-            onClick={() => { setActiveTab('text'); setSelectedFile(null); setImagePreview(null); setError(''); }}
-          >
-            <FileCode size={14} /> Notes / Code
+            <LinkIcon size={15} /> Link / YouTube
           </button>
         </div>
 
@@ -458,101 +402,6 @@ export default function SourceModal({
                 </>
               ) : (
                 'Scrape & Index Link'
-              )}
-            </button>
-          </form>
-        )}
-
-        {/* TAB 4: RAW TEXT / CODE / NOTES */}
-        {activeTab === 'text' && (
-          <form onSubmit={handleIngestText}>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
-                  Title / Subject:
-                </label>
-                <input 
-                  type="text"
-                  className="form-input"
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-app)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '0.65rem 0.85rem',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.88rem',
-                    outline: 'none'
-                  }}
-                  placeholder="e.g. Architecture Overview, Meeting Notes"
-                  value={textTitle}
-                  onChange={(e) => setTextTitle(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
-                  Format:
-                </label>
-                <select
-                  value={textType}
-                  onChange={(e) => setTextType(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-app)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '0.65rem 0.85rem',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.88rem',
-                    outline: 'none',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <option value="text">📝 Notes / Markdown</option>
-                  <option value="code">💻 Code / Script</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
-                Content to Index:
-              </label>
-              <textarea 
-                required
-                rows={6}
-                className="form-input"
-                style={{
-                  width: '100%',
-                  background: 'var(--bg-app)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '0.75rem 0.85rem',
-                  color: 'var(--text-primary)',
-                  fontSize: '0.88rem',
-                  fontFamily: textType === 'code' ? 'var(--font-mono)' : 'inherit',
-                  outline: 'none',
-                  resize: 'vertical'
-                }}
-                placeholder={textType === 'code' ? "Paste source code, SQL, config, JSON, or scripts here..." : "Paste meeting notes, emails, Notion content, documentation, or study notes..."}
-                value={textContent}
-                onChange={(e) => setTextContent(e.target.value)}
-              />
-            </div>
-
-            <button 
-              type="submit"
-              className="btn-gradient" 
-              style={{ width: '100%', justifyContent: 'center' }}
-              disabled={loading || !textContent.trim()}
-            >
-              {loading ? (
-                <>
-                  <RefreshCw size={16} className="animate-spin" /> Chunking & Indexing Content...
-                </>
-              ) : (
-                'Index Notes & Code'
               )}
             </button>
           </form>

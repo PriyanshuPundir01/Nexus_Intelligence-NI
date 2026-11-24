@@ -24,7 +24,7 @@ export default function App() {
   const [theme, setTheme] = useState('dark');
 
   const handleOpenAddModal = (tab = 'pdf') => {
-    if (typeof tab === 'string' && ['pdf', 'image', 'link', 'text', 'code'].includes(tab)) {
+    if (typeof tab === 'string' && ['pdf', 'image', 'link'].includes(tab)) {
       setModalInitialTab(tab);
     } else {
       setModalInitialTab('pdf');

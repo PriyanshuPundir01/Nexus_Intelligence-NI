@@ -38,7 +38,6 @@ export default function Navbar({
   const pdfCount = sources.filter(s => s.type === 'pdf').length;
   const imgCount = sources.filter(s => s.type === 'image').length;
   const linkCount = sources.filter(s => s.type === 'link').length;
-  const noteCount = sources.filter(s => s.type === 'text' || s.type === 'code').length;
 
   const getInitials = (name) => {
     if (!name) return 'NI';
@@ -57,7 +56,7 @@ export default function Navbar({
             <span className="brand-tag">NI • MULTIMODAL</span>
           </h1>
           <div className="brand-sub">
-            AI Knowledge Engine • PDFs • Images • Links & YouTube • Notes
+            AI Knowledge Engine • PDFs • Images • Links & YouTube
           </div>
         </div>
       </div>
@@ -91,19 +90,6 @@ export default function Navbar({
           >
             <LinkIcon size={14} /> {linkCount} Links
           </button>
-          {noteCount > 0 && (
-            <>
-              <span style={{ color: 'var(--border-subtle)' }}>•</span>
-              <button 
-                type="button"
-                onClick={() => onOpenAddModal('text')}
-                style={{ background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#a78bfa', cursor: 'pointer', padding: 0, font: 'inherit' }}
-                title="Click to add or manage Notes"
-              >
-                <FileCode size={14} /> {noteCount} Notes
-              </button>
-            </>
-          )}
           <span style={{ color: 'var(--border-subtle)' }}>•</span>
           <span style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>
             {totalChunks} Chunks
