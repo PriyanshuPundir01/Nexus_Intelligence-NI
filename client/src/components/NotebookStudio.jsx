@@ -1,26 +1,41 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Headphones, 
-  BookOpen, 
-  HelpCircle, 
-  Calendar, 
+  Radio,
+  Video, 
   FileText, 
-  StickyNote, 
+  HelpCircle, 
+  Presentation, 
+  Network, 
+  Layers, 
+  BarChart3, 
+  Sparkles, 
+  RefreshCw, 
   Play, 
   Pause, 
   Square, 
-  Copy, 
+  Maximize2, 
+  Minimize2, 
+  ChevronLeft, 
+  ChevronRight, 
   Check, 
-  Sparkles, 
-  RefreshCw, 
+  RotateCcw, 
+  Shuffle, 
+  CheckCircle2, 
+  XCircle, 
+  Info, 
+  TrendingUp, 
+  Award, 
+  Download, 
+  StickyNote, 
   X, 
   Plus, 
   Trash2, 
-  Download,
-  Volume2,
-  VolumeX,
-  ExternalLink,
-  ChevronRight
+  Volume2, 
+  Eye, 
+  Lightbulb, 
+  Share2,
+  Copy
 } from 'lucide-react';
 
 function escapeHtml(unsafe) {
@@ -94,6 +109,67 @@ function StudioMarkdownViewer({ text }) {
   return <div style={{ wordBreak: 'break-word' }}>{elements}</div>;
 }
 
+// 8 Official Studio Tools matching NotebookLM
+const STUDIO_TOOLS = [
+  {
+    id: 'audio-overview',
+    label: 'Audio Overview',
+    icon: Radio,
+    color: '#3b82f6',
+    description: 'Dynamic 2-host audio deep dive podcast with voice playback.'
+  },
+  {
+    id: 'slide-deck',
+    label: 'Slide deck',
+    icon: Presentation,
+    color: '#d946ef',
+    description: 'Executive presentation deck with bullet points, visual ideas & speaker notes.'
+  },
+  {
+    id: 'video-overview',
+    label: 'Video Overview',
+    icon: Video,
+    color: '#10b981',
+    description: 'Cinematic video storyboard with camera angles and narration script.'
+  },
+  {
+    id: 'mind-map',
+    label: 'Mind Map',
+    icon: Network,
+    color: '#8b5cf6',
+    description: 'Hierarchical concept graph with interactive nodes and Mermaid diagram.'
+  },
+  {
+    id: 'reports',
+    label: 'Reports',
+    icon: FileText,
+    color: '#ec4899',
+    badge: 'New!',
+    description: 'Comprehensive research briefing document with verified citations.'
+  },
+  {
+    id: 'flashcards',
+    label: 'Flashcards',
+    icon: Layers,
+    color: '#f97316',
+    description: 'Interactive 3D flippable study cards for rapid knowledge retention.'
+  },
+  {
+    id: 'quiz',
+    label: 'Quiz',
+    icon: HelpCircle,
+    color: '#06b6d4',
+    description: 'Interactive comprehension assessment with instant feedback and score tracking.'
+  },
+  {
+    id: 'infographic',
+    label: 'Infographic',
+    icon: BarChart3,
+    color: '#f59e0b',
+    description: 'Visual data dashboard with high-impact stat counters and core pillars.'
+  }
+];
+
 export default function NotebookStudio({ 
   isOpen, 
   onClose, 
@@ -105,20 +181,46 @@ export default function NotebookStudio({
   onAddNote,
   onDeleteNote
 }) {
-  const [activeTab, setActiveTab] = useState('podcast'); // 'podcast', 'study-guide', 'faq', 'timeline', 'briefing', 'notes'
+  const [activeTab, setActiveTab] = useState('audio-overview');
   const [loading, setLoading] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [studioOutputs, setStudioOutputs] = useState({
-    podcast: null,
-    'study-guide': null,
-    faq: null,
-    timeline: null,
-    briefing: null
+    'audio-overview': null,
+    'slide-deck': null,
+    'video-overview': null,
+    'mind-map': null,
+    'reports': null,
+    'flashcards': null,
+    'quiz': null,
+    'infographic': null
   });
+
   const [copied, setCopied] = useState(false);
   const [newNoteInput, setNewNoteInput] = useState('');
   const [newNoteTitle, setNewNoteTitle] = useState('');
 
-  // Audio Playback State for Podcast
+  // Slide Deck State
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [showSpeakerNotes, setShowSpeakerNotes] = useState(false);
+
+  // Flashcards State
+  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [isCardFlipped, setIsCardFlipped] = useState(false);
+  const [flashcardDeck, setFlashcardDeck] = useState([]);
+  const [flashcardViewMode, setFlashcardViewMode] = useState('single'); // 'single' | 'grid'
+
+  // Quiz State
+  const [currentQuizQuestionIndex, setCurrentQuizQuestionIndex] = useState(0);
+  const [userQuizAnswers, setUserQuizAnswers] = useState({}); // { [questionIdx]: selectedOptionIdx }
+  const [quizScore, setQuizScore] = useState(0);
+
+  // Video Overview State
+  const [activeSceneIndex, setActiveSceneIndex] = useState(0);
+
+  // Mind Map State
+  const [mindMapViewMode, setMindMapViewMode] = useState('visual'); // 'visual' | 'mermaid'
+
+  // Audio Playback State for Audio Overview
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isPausedAudio, setIsPausedAudio] = useState(false);
   const [currentSpeakerTurn, setCurrentSpeakerTurn] = useState(-1);
@@ -130,8 +232,8 @@ export default function NotebookStudio({
     ? `${selectedCount} of ${sources.length} sources selected`
     : `All ${sources.length} sources active`;
 
-  // Parse podcast lines into turns
-  const getPodcastTurns = (content) => {
+  // Parse podcast/audio dialogue into turns
+  const getAudioTurns = (content) => {
     if (!content) return [];
     const lines = content.split('\n').filter(l => l.trim().length > 0);
     const turns = [];
@@ -143,7 +245,6 @@ export default function NotebookStudio({
       } else if (/^Jordan:\s*/i.test(trimmed)) {
         turns.push({ speaker: 'Jordan', text: trimmed.replace(/^Jordan:\s*/i, '') });
       } else if (turns.length > 0) {
-        // Append continuation to previous speaker
         turns[turns.length - 1].text += ' ' + trimmed;
       }
     });
@@ -151,7 +252,7 @@ export default function NotebookStudio({
     return turns;
   };
 
-  const turns = studioOutputs.podcast ? getPodcastTurns(studioOutputs.podcast.content) : [];
+  const audioTurns = studioOutputs['audio-overview'] ? getAudioTurns(studioOutputs['audio-overview'].content) : [];
 
   // Stop audio on unmount or tab switch
   useEffect(() => {
@@ -162,12 +263,37 @@ export default function NotebookStudio({
     };
   }, []);
 
+  // Sync flashcards when generated
+  useEffect(() => {
+    if (studioOutputs['flashcards']?.parsedData?.cards) {
+      setFlashcardDeck(studioOutputs['flashcards'].parsedData.cards);
+      setCurrentCardIndex(0);
+      setIsCardFlipped(false);
+    }
+  }, [studioOutputs['flashcards']]);
+
+  // Sync quiz questions when generated
+  useEffect(() => {
+    if (studioOutputs['quiz']?.parsedData?.questions) {
+      setCurrentQuizQuestionIndex(0);
+      setUserQuizAnswers({});
+      setQuizScore(0);
+    }
+  }, [studioOutputs['quiz']]);
+
+  // Sync slide deck when generated
+  useEffect(() => {
+    if (studioOutputs['slide-deck']?.parsedData?.slides) {
+      setCurrentSlideIndex(0);
+      setShowSpeakerNotes(false);
+    }
+  }, [studioOutputs['slide-deck']]);
+
   const handleGenerate = async (type) => {
     if (loading) return;
     setLoading(true);
 
-    // Stop existing audio if regenerating podcast
-    if (type === 'podcast' && window.speechSynthesis) {
+    if (type === 'audio-overview' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
       setIsPlayingAudio(false);
       setIsPausedAudio(false);
@@ -175,9 +301,7 @@ export default function NotebookStudio({
     }
 
     try {
-      const headers = {
-        'Content-Type': 'application/json'
-      };
+      const headers = { 'Content-Type': 'application/json' };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       } else if (guestSessionId) {
@@ -200,21 +324,22 @@ export default function NotebookStudio({
         ...prev,
         [type]: {
           content: data.content,
+          parsedData: data.parsedData,
           timestamp: data.timestamp,
           sourceCount: data.sourceCount
         }
       }));
     } catch (err) {
-      alert(`NotebookLM Studio Error: ${err.message}`);
+      alert(`Notebook Studio Error: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Web Speech API Voice synthesis for Podcast
+  // Web Speech API Voice synthesis for Audio Overview
   const playSpeakerTurn = (index, parsedTurns) => {
     if (!('speechSynthesis' in window)) {
-      alert('Web Speech API is not supported in this browser for podcast playback.');
+      alert('Web Speech API is not supported in this browser.');
       return;
     }
 
@@ -230,14 +355,12 @@ export default function NotebookStudio({
     const utterance = new SpeechSynthesisUtterance(turn.text);
     speechUtteranceRef.current = utterance;
 
-    // Pick voices based on speaker identity
     const voices = window.speechSynthesis.getVoices();
     const isAlex = turn.speaker === 'Alex';
 
     utterance.rate = audioSpeed;
-    utterance.pitch = isAlex ? 0.95 : 1.15; // Alex deeper, Jordan higher/crisper
+    utterance.pitch = isAlex ? 0.95 : 1.15;
 
-    // Try finding nice English voices
     if (voices.length > 0) {
       const engVoices = voices.filter(v => v.lang.startsWith('en'));
       if (engVoices.length > 1) {
@@ -258,7 +381,7 @@ export default function NotebookStudio({
   };
 
   const handleStartAudio = () => {
-    if (!turns || turns.length === 0) return;
+    if (!audioTurns || audioTurns.length === 0) return;
     if (isPausedAudio) {
       window.speechSynthesis.resume();
       setIsPausedAudio(false);
@@ -267,7 +390,7 @@ export default function NotebookStudio({
       window.speechSynthesis.cancel();
       setIsPlayingAudio(true);
       setIsPausedAudio(false);
-      playSpeakerTurn(0, turns);
+      playSpeakerTurn(0, audioTurns);
     }
   };
 
@@ -289,19 +412,20 @@ export default function NotebookStudio({
   };
 
   const handleCopyContent = (text) => {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(typeof text === 'string' ? text : JSON.stringify(text, null, 2));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleSaveToNotesCurrent = (title, content) => {
+    const formatted = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
     onAddNote({
       id: `note_${Date.now()}`,
-      title: title || 'NotebookLM Studio Artifact',
-      content,
+      title: title || 'Notebook Studio Artifact',
+      content: formatted,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     });
-    alert('Saved to your Notes Board!');
+    alert('Saved to your Research Notes!');
   };
 
   const handleCreateManualNote = (e) => {
@@ -331,11 +455,40 @@ export default function NotebookStudio({
     URL.revokeObjectURL(url);
   };
 
+  // Flashcard Helpers
+  const handleShuffleDeck = () => {
+    if (!flashcardDeck.length) return;
+    const shuffled = [...flashcardDeck].sort(() => Math.random() - 0.5);
+    setFlashcardDeck(shuffled);
+    setCurrentCardIndex(0);
+    setIsCardFlipped(false);
+  };
+
+  // Quiz Answer Handler
+  const handleSelectQuizOption = (questionIdx, optionIdx, correctIdx) => {
+    if (userQuizAnswers[questionIdx] !== undefined) return; // already answered
+    const isCorrect = optionIdx === correctIdx;
+    setUserQuizAnswers(prev => ({ ...prev, [questionIdx]: optionIdx }));
+    if (isCorrect) {
+      setQuizScore(prev => prev + 1);
+    }
+  };
+
+  const handleResetQuiz = () => {
+    setUserQuizAnswers({});
+    setCurrentQuizQuestionIndex(0);
+    setQuizScore(0);
+  };
+
   if (!isOpen) return null;
+
+  const currentToolMeta = STUDIO_TOOLS.find(t => t.id === activeTab) || STUDIO_TOOLS[0];
+  const currentOutput = studioOutputs[activeTab];
 
   return (
     <aside className="studio-panel" style={{
-      width: '420px',
+      width: isExpanded ? '640px' : '460px',
+      maxWidth: '100vw',
       background: 'var(--bg-surface)',
       borderLeft: '1px solid var(--border-subtle)',
       display: 'flex',
@@ -343,11 +496,12 @@ export default function NotebookStudio({
       height: '100%',
       position: 'relative',
       zIndex: 30,
-      flexShrink: 0
+      flexShrink: 0,
+      transition: 'width 0.22s cubic-bezier(0.16, 1, 0.3, 1)'
     }}>
       {/* Studio Header */}
       <div style={{
-        padding: '1.1rem 1.25rem',
+        padding: '0.9rem 1.15rem',
         borderBottom: '1px solid var(--border-subtle)',
         display: 'flex',
         alignItems: 'center',
@@ -369,8 +523,11 @@ export default function NotebookStudio({
             <Sparkles size={16} />
           </div>
           <div>
-            <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              Notebook Studio
+            <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              Studio
+              <span style={{ fontSize: '0.68rem', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--accent-primary)', padding: '0.1rem 0.4rem', borderRadius: '9999px', fontWeight: 700 }}>
+                NotebookLM AI
+              </span>
             </div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
               {activeSourcesText}
@@ -378,192 +535,164 @@ export default function NotebookStudio({
           </div>
         </div>
 
-        <button 
-          onClick={onClose}
-          className="composer-btn-icon"
-          style={{ width: '28px', height: '28px' }}
-          title="Close Studio Panel"
-        >
-          <X size={16} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+          <button 
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="composer-btn-icon"
+            style={{ width: '28px', height: '28px' }}
+            title={isExpanded ? 'Collapse width' : 'Expand width'}
+          >
+            {isExpanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+          </button>
+          <button 
+            onClick={onClose}
+            className="composer-btn-icon"
+            style={{ width: '28px', height: '28px' }}
+            title="Close Studio Panel"
+          >
+            <X size={16} />
+          </button>
+        </div>
       </div>
 
-      {/* Studio Nav Tabs */}
+      {/* 2-Column Pill Grid Matching NotebookLM Screenshot */}
       <div style={{
-        display: 'flex',
-        overflowX: 'auto',
-        padding: '0.5rem 0.75rem',
-        gap: '0.35rem',
-        borderBottom: '1px solid var(--border-subtle)',
-        background: 'var(--bg-app)'
+        padding: '0.85rem 1rem',
+        background: 'var(--bg-app)',
+        borderBottom: '1px solid var(--border-subtle)'
       }}>
-        <button
-          onClick={() => setActiveTab('podcast')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            padding: '0.35rem 0.65rem',
-            borderRadius: 'var(--radius-sm)',
-            border: activeTab === 'podcast' ? '1px solid var(--accent-primary)' : '1px solid transparent',
-            background: activeTab === 'podcast' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-            color: activeTab === 'podcast' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <Headphones size={13} /> Audio Overview
-        </button>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: '0.55rem'
+        }}>
+          {STUDIO_TOOLS.map(tool => {
+            const Icon = tool.icon;
+            const isSelected = activeTab === tool.id;
+            return (
+              <button
+                key={tool.id}
+                onClick={() => setActiveTab(tool.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.55rem',
+                  padding: '0.55rem 0.85rem',
+                  borderRadius: '9999px',
+                  border: isSelected 
+                    ? `1.5px solid ${tool.color}` 
+                    : '1px solid var(--border-subtle)',
+                  background: isSelected 
+                    ? `${tool.color}15` 
+                    : 'var(--bg-surface)',
+                  color: 'var(--text-primary)',
+                  fontWeight: isSelected ? 700 : 500,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.16s ease',
+                  boxShadow: isSelected 
+                    ? `0 2px 10px ${tool.color}25` 
+                    : '0 1px 2px rgba(0,0,0,0.03)',
+                  textAlign: 'left',
+                  width: '100%',
+                  position: 'relative'
+                }}
+              >
+                <div style={{ color: tool.color, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                  <Icon size={16} strokeWidth={2.2} />
+                </div>
+                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {tool.label}
+                </span>
+                {tool.badge && (
+                  <span style={{
+                    fontSize: '0.62rem',
+                    fontWeight: 700,
+                    padding: '0.1rem 0.4rem',
+                    borderRadius: '9999px',
+                    background: 'rgba(148, 163, 184, 0.25)',
+                    color: 'var(--text-secondary)',
+                    lineHeight: 1.2
+                  }}>
+                    {tool.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
 
-        <button
-          onClick={() => setActiveTab('study-guide')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            padding: '0.35rem 0.65rem',
-            borderRadius: 'var(--radius-sm)',
-            border: activeTab === 'study-guide' ? '1px solid var(--accent-primary)' : '1px solid transparent',
-            background: activeTab === 'study-guide' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-            color: activeTab === 'study-guide' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <BookOpen size={13} /> Study Guide
-        </button>
-
-        <button
-          onClick={() => setActiveTab('faq')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            padding: '0.35rem 0.65rem',
-            borderRadius: 'var(--radius-sm)',
-            border: activeTab === 'faq' ? '1px solid var(--accent-primary)' : '1px solid transparent',
-            background: activeTab === 'faq' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-            color: activeTab === 'faq' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <HelpCircle size={13} /> FAQ
-        </button>
-
-        <button
-          onClick={() => setActiveTab('timeline')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            padding: '0.35rem 0.65rem',
-            borderRadius: 'var(--radius-sm)',
-            border: activeTab === 'timeline' ? '1px solid var(--accent-primary)' : '1px solid transparent',
-            background: activeTab === 'timeline' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-            color: activeTab === 'timeline' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <Calendar size={13} /> Timeline
-        </button>
-
-        <button
-          onClick={() => setActiveTab('briefing')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            padding: '0.35rem 0.65rem',
-            borderRadius: 'var(--radius-sm)',
-            border: activeTab === 'briefing' ? '1px solid var(--accent-primary)' : '1px solid transparent',
-            background: activeTab === 'briefing' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-            color: activeTab === 'briefing' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <FileText size={13} /> Briefing
-        </button>
-
-        <button
-          onClick={() => setActiveTab('notes')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            padding: '0.35rem 0.65rem',
-            borderRadius: 'var(--radius-sm)',
-            border: activeTab === 'notes' ? '1px solid var(--accent-primary)' : '1px solid transparent',
-            background: activeTab === 'notes' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-            color: activeTab === 'notes' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <StickyNote size={13} /> Notes ({notes.length})
-        </button>
+        {/* Secondary Navigation to Notes Board */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+          <button
+            onClick={() => setActiveTab('notes')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              background: activeTab === 'notes' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+              border: activeTab === 'notes' ? '1px solid var(--accent-primary)' : '1px solid transparent',
+              borderRadius: 'var(--radius-sm)',
+              padding: '0.2rem 0.55rem',
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              color: activeTab === 'notes' ? 'var(--accent-primary)' : 'var(--text-muted)',
+              cursor: 'pointer'
+            }}
+          >
+            <StickyNote size={12} /> Notes & Scratchpad ({notes.length})
+          </button>
+        </div>
       </div>
 
-      {/* Main Studio Body */}
+      {/* Main Studio Body Area */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '1.1rem' }}>
-        
-        {/* PODCAST / AUDIO OVERVIEW TAB */}
-        {activeTab === 'podcast' && (
+
+        {/* ============================================================== */}
+        {/* 1. AUDIO OVERVIEW (PODCAST)                                    */}
+        {/* ============================================================== */}
+        {activeTab === 'audio-overview' && (
           <div>
             <div style={{
-              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%)',
-              border: '1px solid rgba(99, 102, 241, 0.25)',
+              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%)',
+              border: '1px solid rgba(59, 130, 246, 0.25)',
               borderRadius: 'var(--radius-md)',
               padding: '1rem',
               marginBottom: '1rem'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Headphones size={20} style={{ color: 'var(--accent-primary)' }} />
-                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Audio Deep Dive Podcast</span>
+                  <Radio size={18} style={{ color: '#3b82f6' }} />
+                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Audio Deep Dive Overview</span>
                 </div>
-                <span style={{ fontSize: '0.7rem', background: 'rgba(99, 102, 241, 0.2)', color: 'var(--accent-cyan)', padding: '0.15rem 0.45rem', borderRadius: 'var(--radius-full)', fontWeight: 700 }}>
+                <span style={{ fontSize: '0.7rem', background: 'rgba(59, 130, 246, 0.2)', color: '#38bdf8', padding: '0.15rem 0.45rem', borderRadius: 'var(--radius-full)', fontWeight: 700 }}>
                   2 Hosts • Alex & Jordan
                 </span>
               </div>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '0.85rem' }}>
-                Generate an engaging, two-host conversation bringing your uploaded knowledge to life with voice playback.
+                Generate an engaging, two-host audio conversation bringing your uploaded knowledge to life with voice playback.
               </p>
 
               <button
                 className="btn-gradient"
                 style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center', padding: '0.55rem' }}
-                onClick={() => handleGenerate('podcast')}
+                onClick={() => handleGenerate('audio-overview')}
                 disabled={loading || sources.length === 0}
               >
                 {loading ? (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <RefreshCw size={14} className="spin-animate" /> Synthesizing Audio Deep Dive...
+                    <RefreshCw size={14} className="spin-animate" /> Synthesizing Audio Overview...
                   </span>
                 ) : (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <Sparkles size={14} /> {studioOutputs.podcast ? 'Regenerate Audio Overview' : 'Generate Audio Overview'}
+                    <Sparkles size={14} /> {currentOutput ? 'Regenerate Audio Overview' : 'Generate Audio Overview'}
                   </span>
                 )}
               </button>
             </div>
 
             {/* Audio Player Controls */}
-            {studioOutputs.podcast && turns.length > 0 && (
+            {currentOutput && audioTurns.length > 0 && (
               <div style={{
                 background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-subtle)',
@@ -575,7 +704,7 @@ export default function NotebookStudio({
                   <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                     <Volume2 size={15} /> 
                     {isPlayingAudio 
-                      ? `Playing: ${turns[currentSpeakerTurn]?.speaker || 'Host'} speaking...` 
+                      ? `Playing: ${audioTurns[currentSpeakerTurn]?.speaker || 'Host'} speaking...` 
                       : isPausedAudio 
                         ? 'Audio Paused' 
                         : 'Interactive Voice Playback Ready'}
@@ -634,19 +763,19 @@ export default function NotebookStudio({
               </div>
             )}
 
-            {/* Transcript Display */}
-            {studioOutputs.podcast && (
+            {/* Transcript */}
+            {currentOutput && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-                    TRANSCRIPT ({turns.length} turns)
+                    TRANSCRIPT ({audioTurns.length} turns)
                   </span>
                   <div style={{ display: 'flex', gap: '0.35rem' }}>
                     <button
                       className="composer-btn-icon"
                       style={{ width: '26px', height: '26px' }}
                       title="Copy script"
-                      onClick={() => handleCopyContent(studioOutputs.podcast.content)}
+                      onClick={() => handleCopyContent(currentOutput.content)}
                     >
                       {copied ? <Check size={13} style={{ color: '#10b981' }} /> : <Copy size={13} />}
                     </button>
@@ -654,14 +783,14 @@ export default function NotebookStudio({
                       className="composer-btn-icon"
                       style={{ width: '26px', height: '26px' }}
                       title="Save to Notes"
-                      onClick={() => handleSaveToNotesCurrent('Audio Overview Script', studioOutputs.podcast.content)}
+                      onClick={() => handleSaveToNotesCurrent('Audio Overview Script', currentOutput.content)}
                     >
                       <StickyNote size={13} />
                     </button>
                   </div>
                 </div>
 
-                {turns.map((turn, idx) => {
+                {audioTurns.map((turn, idx) => {
                   const isActive = currentSpeakerTurn === idx;
                   const isAlex = turn.speaker === 'Alex';
                   return (
@@ -671,11 +800,11 @@ export default function NotebookStudio({
                         padding: '0.75rem 0.85rem',
                         borderRadius: 'var(--radius-sm)',
                         background: isActive 
-                          ? 'rgba(99, 102, 241, 0.2)' 
+                          ? 'rgba(59, 130, 246, 0.2)' 
                           : isAlex 
                             ? 'var(--bg-surface-elevated)' 
                             : 'rgba(255, 255, 255, 0.03)',
-                        border: isActive ? '1px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
+                        border: isActive ? '1px solid #3b82f6' : '1px solid var(--border-subtle)',
                         transition: 'all 0.2s ease'
                       }}
                     >
@@ -691,7 +820,7 @@ export default function NotebookStudio({
                           {turn.speaker}
                         </span>
                         {isActive && (
-                          <span style={{ fontSize: '0.68rem', color: 'var(--accent-primary)', fontWeight: 700 }}>
+                          <span style={{ fontSize: '0.68rem', color: '#38bdf8', fontWeight: 700 }}>
                             Speaking now...
                           </span>
                         )}
@@ -707,71 +836,657 @@ export default function NotebookStudio({
           </div>
         )}
 
-        {/* STUDY GUIDE, FAQ, TIMELINE, BRIEFING TABS */}
-        {['study-guide', 'faq', 'timeline', 'briefing'].includes(activeTab) && (
+        {/* ============================================================== */}
+        {/* 2. SLIDE DECK                                                  */}
+        {/* ============================================================== */}
+        {activeTab === 'slide-deck' && (
           <div>
             <div style={{
-              background: 'var(--bg-surface-elevated)',
-              border: '1px solid var(--border-subtle)',
+              background: 'linear-gradient(135deg, rgba(217, 70, 239, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%)',
+              border: '1px solid rgba(217, 70, 239, 0.25)',
               borderRadius: 'var(--radius-md)',
               padding: '1rem',
               marginBottom: '1rem'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                <span style={{ fontWeight: 800, fontSize: '0.92rem', textTransform: 'capitalize' }}>
-                  {activeTab.replace('-', ' ')}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Presentation size={18} style={{ color: '#d946ef' }} />
+                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Slide Deck Presentation</span>
+                </div>
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
                   Grounded on {sources.length} sources
                 </span>
               </div>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '0.85rem' }}>
-                {activeTab === 'study-guide' && 'Synthesize an in-depth study guide complete with core concepts, practice quiz, and glossary.'}
-                {activeTab === 'faq' && 'Extract frequently asked questions with grounded answers based strictly on your source documents.'}
-                {activeTab === 'timeline' && 'Construct a chronological timeline map detailing dates, phases, and milestones.'}
-                {activeTab === 'briefing' && 'Generate a strategic executive briefing memo outlining key findings and actionable next steps.'}
+                Generate an executive presentation deck complete with key takeaways, visual concept suggestions, and speaker notes.
               </p>
 
               <button
                 className="btn-gradient"
                 style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center', padding: '0.55rem' }}
-                onClick={() => handleGenerate(activeTab)}
+                onClick={() => handleGenerate('slide-deck')}
                 disabled={loading || sources.length === 0}
               >
                 {loading ? (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <RefreshCw size={14} className="spin-animate" /> Generating {activeTab.replace('-', ' ')}...
+                    <RefreshCw size={14} className="spin-animate" /> Crafting Slide Deck...
                   </span>
                 ) : (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <Sparkles size={14} /> {studioOutputs[activeTab] ? `Regenerate ${activeTab.replace('-', ' ')}` : `Generate ${activeTab.replace('-', ' ')}`}
+                    <Sparkles size={14} /> {currentOutput ? 'Regenerate Slide Deck' : 'Generate Slide Deck'}
                   </span>
                 )}
               </button>
             </div>
 
-            {studioOutputs[activeTab] && (
+            {/* Slide Viewer */}
+            {currentOutput?.parsedData?.slides && currentOutput.parsedData.slides.length > 0 ? (
+              <div>
+                {/* Header info & nav */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <div>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#d946ef' }}>
+                      Slide {currentSlideIndex + 1} of {currentOutput.parsedData.slides.length}
+                    </span>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                      {currentOutput.parsedData.deckTitle || 'Presentation Deck'}
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                    <button
+                      className="composer-btn-icon"
+                      style={{ width: '28px', height: '28px' }}
+                      disabled={currentSlideIndex === 0}
+                      onClick={() => setCurrentSlideIndex(prev => Math.max(0, prev - 1))}
+                      title="Previous Slide"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button
+                      className="composer-btn-icon"
+                      style={{ width: '28px', height: '28px' }}
+                      disabled={currentSlideIndex === currentOutput.parsedData.slides.length - 1}
+                      onClick={() => setCurrentSlideIndex(prev => Math.min(currentOutput.parsedData.slides.length - 1, prev + 1))}
+                      title="Next Slide"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                    <button
+                      className="composer-btn-icon"
+                      style={{ width: '28px', height: '28px' }}
+                      title="Copy slide deck"
+                      onClick={() => handleCopyContent(currentOutput.content)}
+                    >
+                      {copied ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
+                    </button>
+                    <button
+                      className="composer-btn-icon"
+                      style={{ width: '28px', height: '28px' }}
+                      title="Save to Notes"
+                      onClick={() => handleSaveToNotesCurrent(currentOutput.parsedData.deckTitle || 'Slide Deck', currentOutput.content)}
+                    >
+                      <StickyNote size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Active Slide Canvas */}
+                {(() => {
+                  const slide = currentOutput.parsedData.slides[currentSlideIndex];
+                  return (
+                    <div style={{
+                      background: 'var(--bg-surface-elevated)',
+                      border: '1.5px solid rgba(217, 70, 239, 0.3)',
+                      borderRadius: 'var(--radius-lg)',
+                      padding: '1.25rem',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                      marginBottom: '1rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#d946ef', background: 'rgba(217, 70, 239, 0.15)', padding: '0.15rem 0.5rem', borderRadius: '9999px' }}>
+                          SLIDE {slide.slideNumber || currentSlideIndex + 1}
+                        </span>
+                        {slide.visualConcept && (
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <Eye size={12} style={{ color: 'var(--accent-cyan)' }} /> Visual concept included
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.9rem', lineHeight: 1.35 }}>
+                        {slide.title}
+                      </h3>
+
+                      {/* Bullets */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1rem' }}>
+                        {slide.bullets?.map((bullet, bIdx) => (
+                          <div key={bIdx} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', fontSize: '0.86rem', lineHeight: 1.55 }}>
+                            <span style={{ color: '#d946ef', fontWeight: 800, marginTop: '0.1rem' }}>✦</span>
+                            <span style={{ color: 'var(--text-primary)' }}>{bullet}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Visual Concept Pill */}
+                      {slide.visualConcept && (
+                        <div style={{
+                          background: 'rgba(56, 189, 248, 0.08)',
+                          border: '1px solid rgba(56, 189, 248, 0.25)',
+                          borderRadius: 'var(--radius-sm)',
+                          padding: '0.6rem 0.75rem',
+                          fontSize: '0.76rem',
+                          color: 'var(--accent-cyan)',
+                          marginBottom: '0.75rem',
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '0.45rem'
+                        }}>
+                          <Eye size={14} style={{ flexShrink: 0, marginTop: '0.1rem' }} />
+                          <div>
+                            <strong>Visual Concept: </strong> {slide.visualConcept}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Speaker Notes Toggle */}
+                      {slide.speakerNotes && (
+                        <div style={{ marginTop: '0.5rem' }}>
+                          <button
+                            onClick={() => setShowSpeakerNotes(!showSpeakerNotes)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text-muted)',
+                              fontSize: '0.74rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                              padding: 0
+                            }}
+                          >
+                            <Lightbulb size={13} style={{ color: '#f59e0b' }} />
+                            {showSpeakerNotes ? 'Hide Speaker Script' : 'Show Speaker Script'}
+                          </button>
+                          {showSpeakerNotes && (
+                            <div style={{
+                              marginTop: '0.4rem',
+                              padding: '0.65rem 0.75rem',
+                              background: 'rgba(255,255,255,0.04)',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: '0.78rem',
+                              fontStyle: 'italic',
+                              lineHeight: 1.5,
+                              color: 'var(--text-secondary)'
+                            }}>
+                              "{slide.speakerNotes}"
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Slide Thumbnail Dots */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                  {currentOutput.parsedData.slides.map((_, sIdx) => (
+                    <button
+                      key={sIdx}
+                      onClick={() => setCurrentSlideIndex(sIdx)}
+                      style={{
+                        width: '28px',
+                        height: '24px',
+                        borderRadius: '4px',
+                        border: currentSlideIndex === sIdx ? '1.5px solid #d946ef' : '1px solid var(--border-subtle)',
+                        background: currentSlideIndex === sIdx ? '#d946ef' : 'var(--bg-surface)',
+                        color: currentSlideIndex === sIdx ? '#fff' : 'var(--text-secondary)',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {sIdx + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : currentOutput ? (
+              <div style={{ background: 'var(--bg-surface-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
+                <StudioMarkdownViewer text={currentOutput.content} />
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* 3. VIDEO OVERVIEW                                              */}
+        {/* ============================================================== */}
+        {activeTab === 'video-overview' && (
+          <div>
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              borderRadius: 'var(--radius-md)',
+              padding: '1rem',
+              marginBottom: '1rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Video size={18} style={{ color: '#10b981' }} />
+                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Video Overview Storyboard</span>
+                </div>
+                <span style={{ fontSize: '0.7rem', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '0.15rem 0.45rem', borderRadius: 'var(--radius-full)', fontWeight: 700 }}>
+                  2-3 Min Cinematic
+                </span>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '0.85rem' }}>
+                Produce a scene-by-scene cinematic video overview storyboard with camera direction, visual b-roll, on-screen text, and voiceover narration.
+              </p>
+
+              <button
+                className="btn-gradient"
+                style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center', padding: '0.55rem' }}
+                onClick={() => handleGenerate('video-overview')}
+                disabled={loading || sources.length === 0}
+              >
+                {loading ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <RefreshCw size={14} className="spin-animate" /> Generating Video Storyboard...
+                  </span>
+                ) : (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <Sparkles size={14} /> {currentOutput ? 'Regenerate Video Storyboard' : 'Generate Video Overview'}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Video Storyboard Scenes */}
+            {currentOutput?.parsedData?.scenes && currentOutput.parsedData.scenes.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                      {currentOutput.parsedData.videoTitle || 'Video Storyboard'}
+                    </span>
+                    <div style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 600 }}>
+                      Est. Duration: {currentOutput.parsedData.estimatedDuration || '2:30'} • {currentOutput.parsedData.scenes.length} Scenes
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.35rem' }}>
+                    <button
+                      className="composer-btn-icon"
+                      style={{ width: '28px', height: '28px' }}
+                      title="Copy storyboard"
+                      onClick={() => handleCopyContent(currentOutput.content)}
+                    >
+                      {copied ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
+                    </button>
+                    <button
+                      className="composer-btn-icon"
+                      style={{ width: '28px', height: '28px' }}
+                      title="Save to Notes"
+                      onClick={() => handleSaveToNotesCurrent(currentOutput.parsedData.videoTitle || 'Video Storyboard', currentOutput.content)}
+                    >
+                      <StickyNote size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {currentOutput.parsedData.scenes.map((scene, scIdx) => (
+                  <div
+                    key={scIdx}
+                    style={{
+                      background: 'var(--bg-surface-elevated)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '1rem',
+                      position: 'relative'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
+                        SCENE {scene.sceneNumber || scIdx + 1}
+                      </span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                        {scene.timestamp || `0:${(scIdx * 25).toString().padStart(2, '0')}`}
+                      </span>
+                    </div>
+
+                    <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.65rem' }}>
+                      {scene.sceneTitle}
+                    </h4>
+
+                    {/* Camera / Visual Prompt */}
+                    {scene.visualPrompt && (
+                      <div style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '0.6rem 0.75rem',
+                        marginBottom: '0.55rem',
+                        fontSize: '0.78rem',
+                        lineHeight: 1.5,
+                        color: 'var(--text-secondary)',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '0.45rem'
+                      }}>
+                        <Video size={14} style={{ color: '#10b981', flexShrink: 0, marginTop: '0.1rem' }} />
+                        <div>
+                          <strong style={{ color: '#10b981' }}>Visual Direction: </strong>
+                          {scene.visualPrompt}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* On-Screen Text */}
+                    {scene.onScreenText && (
+                      <div style={{
+                        fontSize: '0.75rem',
+                        color: 'var(--accent-cyan)',
+                        fontWeight: 700,
+                        padding: '0.35rem 0.65rem',
+                        background: 'rgba(6, 182, 212, 0.1)',
+                        borderRadius: '4px',
+                        marginBottom: '0.55rem',
+                        display: 'inline-block'
+                      }}>
+                        📺 Text on screen: "{scene.onScreenText}"
+                      </div>
+                    )}
+
+                    {/* Voiceover script */}
+                    {scene.narration && (
+                      <div style={{
+                        borderLeft: '2px solid #10b981',
+                        paddingLeft: '0.65rem',
+                        fontSize: '0.82rem',
+                        color: 'var(--text-primary)',
+                        fontStyle: 'italic',
+                        lineHeight: 1.5
+                      }}>
+                        🎙️ "{scene.narration}"
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : currentOutput ? (
+              <div style={{ background: 'var(--bg-surface-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
+                <StudioMarkdownViewer text={currentOutput.content} />
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* 4. MIND MAP                                                    */}
+        {/* ============================================================== */}
+        {activeTab === 'mind-map' && (
+          <div>
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(217, 70, 239, 0.08) 100%)',
+              border: '1px solid rgba(139, 92, 246, 0.25)',
+              borderRadius: 'var(--radius-md)',
+              padding: '1rem',
+              marginBottom: '1rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Network size={18} style={{ color: '#8b5cf6' }} />
+                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Knowledge Mind Map</span>
+                </div>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                  Interactive Node Graph
+                </span>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '0.85rem' }}>
+                Map out complex relationships, core branches, and subtopics with visual hierarchical nodes and Mermaid diagrams.
+              </p>
+
+              <button
+                className="btn-gradient"
+                style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center', padding: '0.55rem' }}
+                onClick={() => handleGenerate('mind-map')}
+                disabled={loading || sources.length === 0}
+              >
+                {loading ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <RefreshCw size={14} className="spin-animate" /> Mapping Knowledge Graph...
+                  </span>
+                ) : (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <Sparkles size={14} /> {currentOutput ? 'Regenerate Mind Map' : 'Generate Mind Map'}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Mind Map Tree */}
+            {currentOutput?.parsedData?.branches ? (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                  <div style={{ display: 'flex', gap: '0.35rem' }}>
+                    <button
+                      onClick={() => setMindMapViewMode('visual')}
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '4px',
+                        border: mindMapViewMode === 'visual' ? '1px solid #8b5cf6' : '1px solid var(--border-subtle)',
+                        background: mindMapViewMode === 'visual' ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                        color: mindMapViewMode === 'visual' ? '#8b5cf6' : 'var(--text-secondary)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Visual Map
+                    </button>
+                    {currentOutput.parsedData.mermaid && (
+                      <button
+                        onClick={() => setMindMapViewMode('mermaid')}
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: '4px',
+                          border: mindMapViewMode === 'mermaid' ? '1px solid #8b5cf6' : '1px solid var(--border-subtle)',
+                          background: mindMapViewMode === 'mermaid' ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                          color: mindMapViewMode === 'mermaid' ? '#8b5cf6' : 'var(--text-secondary)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Mermaid Code
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.35rem' }}>
+                    <button
+                      className="composer-btn-icon"
+                      style={{ width: '28px', height: '28px' }}
+                      title="Copy Mind Map"
+                      onClick={() => handleCopyContent(currentOutput.parsedData.mermaid || currentOutput.content)}
+                    >
+                      {copied ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
+                    </button>
+                    <button
+                      className="composer-btn-icon"
+                      style={{ width: '28px', height: '28px' }}
+                      title="Save to Notes"
+                      onClick={() => handleSaveToNotesCurrent('Knowledge Mind Map', currentOutput.content)}
+                    >
+                      <StickyNote size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {mindMapViewMode === 'visual' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {/* Central Node */}
+                    <div style={{
+                      background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(99, 102, 241, 0.2) 100%)',
+                      border: '2px solid #8b5cf6',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '0.85rem 1rem',
+                      textAlign: 'center',
+                      boxShadow: '0 4px 15px rgba(139, 92, 246, 0.2)'
+                    }}>
+                      <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        CENTRAL KNOWLEDGE TOPIC
+                      </span>
+                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0.25rem 0' }}>
+                        {currentOutput.parsedData.centralTopic || 'Core Subject'}
+                      </h3>
+                      {currentOutput.parsedData.summary && (
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>
+                          {currentOutput.parsedData.summary}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Branches */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                      {currentOutput.parsedData.branches.map((branch, bIdx) => (
+                        <div
+                          key={bIdx}
+                          style={{
+                            background: 'var(--bg-surface-elevated)',
+                            border: '1px solid var(--border-subtle)',
+                            borderLeft: '3px solid #8b5cf6',
+                            borderRadius: 'var(--radius-sm)',
+                            padding: '0.85rem'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.35rem' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#8b5cf6' }} />
+                            <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                              {branch.title}
+                            </h4>
+                          </div>
+
+                          {branch.summary && (
+                            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', lineHeight: 1.45 }}>
+                              {branch.summary}
+                            </p>
+                          )}
+
+                          {branch.subTopics && branch.subTopics.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                              {branch.subTopics.map((sub, sIdx) => (
+                                <span
+                                  key={sIdx}
+                                  style={{
+                                    fontSize: '0.72rem',
+                                    padding: '0.2rem 0.5rem',
+                                    borderRadius: '9999px',
+                                    background: 'rgba(139, 92, 246, 0.1)',
+                                    color: '#c4b5fd',
+                                    border: '1px solid rgba(139, 92, 246, 0.2)'
+                                  }}
+                                >
+                                  {sub}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  /* Mermaid Code Tab */
+                  <div style={{
+                    background: 'var(--bg-app)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '0.85rem',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.78rem',
+                    color: 'var(--text-primary)',
+                    whiteSpace: 'pre-wrap',
+                    overflowX: 'auto'
+                  }}>
+                    {currentOutput.parsedData.mermaid}
+                  </div>
+                )}
+              </div>
+            ) : currentOutput ? (
+              <div style={{ background: 'var(--bg-surface-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
+                <StudioMarkdownViewer text={currentOutput.content} />
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* 5. REPORTS (NEW!)                                              */}
+        {/* ============================================================== */}
+        {activeTab === 'reports' && (
+          <div>
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%)',
+              border: '1px solid rgba(236, 72, 153, 0.25)',
+              borderRadius: 'var(--radius-md)',
+              padding: '1rem',
+              marginBottom: '1rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <FileText size={18} style={{ color: '#ec4899' }} />
+                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Comprehensive Research Report</span>
+                </div>
+                <span style={{ fontSize: '0.68rem', background: '#ec4899', color: '#fff', padding: '0.12rem 0.45rem', borderRadius: '9999px', fontWeight: 800 }}>
+                  New!
+                </span>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '0.85rem' }}>
+                Synthesize publication-grade executive intelligence reports with background scope, evidence breakdown, risk implications, and strategic roadmaps.
+              </p>
+
+              <button
+                className="btn-gradient"
+                style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center', padding: '0.55rem' }}
+                onClick={() => handleGenerate('reports')}
+                disabled={loading || sources.length === 0}
+              >
+                {loading ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <RefreshCw size={14} className="spin-animate" /> Compiling Research Report...
+                  </span>
+                ) : (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <Sparkles size={14} /> {currentOutput ? 'Regenerate Research Report' : 'Generate Research Report'}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {currentOutput && (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Generated at {studioOutputs[activeTab].timestamp}
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    Generated at {currentOutput.timestamp} • Grounded in {currentOutput.sourceCount || sources.length} sources
                   </span>
                   <div style={{ display: 'flex', gap: '0.35rem' }}>
                     <button
                       className="composer-btn-icon"
-                      style={{ width: '26px', height: '26px' }}
-                      title="Copy to clipboard"
-                      onClick={() => handleCopyContent(studioOutputs[activeTab].content)}
+                      style={{ width: '28px', height: '28px' }}
+                      title="Copy report"
+                      onClick={() => handleCopyContent(currentOutput.content)}
                     >
-                      {copied ? <Check size={13} style={{ color: '#10b981' }} /> : <Copy size={13} />}
+                      {copied ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
                     </button>
                     <button
                       className="composer-btn-icon"
-                      style={{ width: '26px', height: '26px' }}
+                      style={{ width: '28px', height: '28px' }}
                       title="Save to Notes"
-                      onClick={() => handleSaveToNotesCurrent(activeTab.toUpperCase(), studioOutputs[activeTab].content)}
+                      onClick={() => handleSaveToNotesCurrent('Executive Research Report', currentOutput.content)}
                     >
-                      <StickyNote size={13} />
+                      <StickyNote size={14} />
                     </button>
                   </div>
                 </div>
@@ -782,14 +1497,629 @@ export default function NotebookStudio({
                   borderRadius: 'var(--radius-md)',
                   padding: '1.25rem'
                 }}>
-                  <StudioMarkdownViewer text={studioOutputs[activeTab].content} />
+                  <StudioMarkdownViewer text={currentOutput.content} />
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* NOTES & SCRATCHPAD TAB */}
+        {/* ============================================================== */}
+        {/* 6. FLASHCARDS                                                  */}
+        {/* ============================================================== */}
+        {activeTab === 'flashcards' && (
+          <div>
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.12) 0%, rgba(245, 158, 11, 0.08) 100%)',
+              border: '1px solid rgba(249, 115, 22, 0.25)',
+              borderRadius: 'var(--radius-md)',
+              padding: '1rem',
+              marginBottom: '1rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Layers size={18} style={{ color: '#f97316' }} />
+                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Interactive Study Flashcards</span>
+                </div>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                  3D Flippable Cards
+                </span>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '0.85rem' }}>
+                Turn your sources into a high-yield study deck with 3D flippable cards, category tagging, and shuffle practice.
+              </p>
+
+              <button
+                className="btn-gradient"
+                style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center', padding: '0.55rem' }}
+                onClick={() => handleGenerate('flashcards')}
+                disabled={loading || sources.length === 0}
+              >
+                {loading ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <RefreshCw size={14} className="spin-animate" /> Generating Flashcard Deck...
+                  </span>
+                ) : (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <Sparkles size={14} /> {currentOutput ? 'Regenerate Flashcards' : 'Generate Flashcards'}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Flashcards Deck */}
+            {flashcardDeck.length > 0 ? (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <div>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#f97316' }}>
+                      Card {currentCardIndex + 1} of {flashcardDeck.length}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '0.45rem' }}>
+                      ({flashcardDeck[currentCardIndex]?.category || 'Core Concept'})
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                    <button
+                      onClick={handleShuffleDeck}
+                      className="composer-btn-icon"
+                      style={{ width: '28px', height: '28px' }}
+                      title="Shuffle Deck"
+                    >
+                      <Shuffle size={14} />
+                    </button>
+                    <button
+                      onClick={() => setFlashcardViewMode(prev => prev === 'single' ? 'grid' : 'single')}
+                      className="composer-btn-icon"
+                      style={{ width: '28px', height: '28px' }}
+                      title={flashcardViewMode === 'single' ? 'View as Grid' : 'View Single Card'}
+                    >
+                      <Layers size={14} />
+                    </button>
+                    <button
+                      className="composer-btn-icon"
+                      style={{ width: '28px', height: '28px' }}
+                      title="Save to Notes"
+                      onClick={() => handleSaveToNotesCurrent('Study Flashcards', currentOutput.content)}
+                    >
+                      <StickyNote size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {flashcardViewMode === 'single' ? (
+                  <div>
+                    {/* 3D Flippable Card */}
+                    <div 
+                      onClick={() => setIsCardFlipped(!isCardFlipped)}
+                      style={{
+                        perspective: '1000px',
+                        cursor: 'pointer',
+                        marginBottom: '1rem',
+                        userSelect: 'none'
+                      }}
+                    >
+                      <div style={{
+                        minHeight: '200px',
+                        borderRadius: 'var(--radius-lg)',
+                        background: isCardFlipped 
+                          ? 'linear-gradient(135deg, rgba(249, 115, 22, 0.15) 0%, rgba(245, 158, 11, 0.1) 100%)' 
+                          : 'var(--bg-surface-elevated)',
+                        border: isCardFlipped 
+                          ? '2px solid #f97316' 
+                          : '1px solid var(--border-subtle)',
+                        padding: '1.5rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+                        transition: 'transform 0.4s ease, border-color 0.3s ease',
+                        transformStyle: 'preserve-3d',
+                        position: 'relative'
+                      }}>
+                        {/* Top tag */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{
+                            fontSize: '0.68rem',
+                            fontWeight: 800,
+                            padding: '0.15rem 0.5rem',
+                            borderRadius: '9999px',
+                            background: isCardFlipped ? '#f97316' : 'rgba(249, 115, 22, 0.15)',
+                            color: isCardFlipped ? '#fff' : '#f97316'
+                          }}>
+                            {isCardFlipped ? 'ANSWER / INSIGHT' : 'QUESTION'}
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                            Click to flip 🔄
+                          </span>
+                        </div>
+
+                        {/* Card Content */}
+                        <div style={{ margin: '1.25rem 0', textAlign: 'center' }}>
+                          <div style={{
+                            fontSize: isCardFlipped ? '0.92rem' : '1.05rem',
+                            fontWeight: isCardFlipped ? 500 : 700,
+                            lineHeight: 1.6,
+                            color: 'var(--text-primary)'
+                          }}>
+                            {isCardFlipped 
+                              ? flashcardDeck[currentCardIndex]?.back 
+                              : flashcardDeck[currentCardIndex]?.front}
+                          </div>
+                        </div>
+
+                        {/* Bottom Hint */}
+                        <div style={{ textAlign: 'center', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          {isCardFlipped ? 'Click card to flip back to question' : 'Click card to reveal answer'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Navigation Controls */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <button
+                        className="btn-ghost"
+                        style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+                        disabled={currentCardIndex === 0}
+                        onClick={() => {
+                          setCurrentCardIndex(prev => Math.max(0, prev - 1));
+                          setIsCardFlipped(false);
+                        }}
+                      >
+                        <ChevronLeft size={16} /> Prev
+                      </button>
+
+                      <button
+                        className="btn-gradient"
+                        style={{ fontSize: '0.8rem', padding: '0.45rem 1rem', background: '#f97316' }}
+                        onClick={() => setIsCardFlipped(!isCardFlipped)}
+                      >
+                        <RotateCcw size={14} /> Flip Card
+                      </button>
+
+                      <button
+                        className="btn-ghost"
+                        style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+                        disabled={currentCardIndex === flashcardDeck.length - 1}
+                        onClick={() => {
+                          setCurrentCardIndex(prev => Math.min(flashcardDeck.length - 1, prev + 1));
+                          setIsCardFlipped(false);
+                        }}
+                      >
+                        Next <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Grid view of all flashcards */
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.65rem' }}>
+                    {flashcardDeck.map((card, cIdx) => (
+                      <div
+                        key={cIdx}
+                        style={{
+                          background: 'var(--bg-surface-elevated)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: 'var(--radius-sm)',
+                          padding: '0.75rem',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.4rem'
+                        }}
+                      >
+                        <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#f97316' }}>
+                          #{cIdx + 1} • {card.category}
+                        </span>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          Q: {card.front}
+                        </div>
+                        <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-subtle)', paddingTop: '0.35rem' }}>
+                          A: {card.back}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : currentOutput ? (
+              <div style={{ background: 'var(--bg-surface-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
+                <StudioMarkdownViewer text={currentOutput.content} />
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* 7. QUIZ                                                        */}
+        {/* ============================================================== */}
+        {activeTab === 'quiz' && (
+          <div>
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(59, 130, 246, 0.08) 100%)',
+              border: '1px solid rgba(6, 182, 212, 0.25)',
+              borderRadius: 'var(--radius-md)',
+              padding: '1rem',
+              marginBottom: '1rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <HelpCircle size={18} style={{ color: '#06b6d4' }} />
+                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Interactive Comprehension Quiz</span>
+                </div>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                  Real-time Scoring
+                </span>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '0.85rem' }}>
+                Test your mastery with interactive multiple-choice questions, instant feedback highlights, and evidence explanations.
+              </p>
+
+              <button
+                className="btn-gradient"
+                style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center', padding: '0.55rem' }}
+                onClick={() => handleGenerate('quiz')}
+                disabled={loading || sources.length === 0}
+              >
+                {loading ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <RefreshCw size={14} className="spin-animate" /> Building Knowledge Quiz...
+                  </span>
+                ) : (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <Sparkles size={14} /> {currentOutput ? 'Regenerate Quiz' : 'Generate Quiz'}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Quiz Game */}
+            {currentOutput?.parsedData?.questions && currentOutput.parsedData.questions.length > 0 ? (
+              <div>
+                {/* Score & Progress */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '0.75rem',
+                  padding: '0.5rem 0.75rem',
+                  background: 'var(--bg-surface-elevated)',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-subtle)'
+                }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#06b6d4' }}>
+                    Question {currentQuizQuestionIndex + 1} of {currentOutput.parsedData.questions.length}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      Score: <strong style={{ color: '#10b981' }}>{quizScore}</strong> / {Object.keys(userQuizAnswers).length}
+                    </span>
+                    <button
+                      onClick={handleResetQuiz}
+                      className="composer-btn-icon"
+                      style={{ width: '24px', height: '24px' }}
+                      title="Retake Quiz"
+                    >
+                      <RotateCcw size={12} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Active Question Card */}
+                {(() => {
+                  const q = currentOutput.parsedData.questions[currentQuizQuestionIndex];
+                  const userAnswer = userQuizAnswers[currentQuizQuestionIndex];
+                  const hasAnswered = userAnswer !== undefined;
+                  const isCorrect = userAnswer === q.correctIndex;
+
+                  return (
+                    <div style={{
+                      background: 'var(--bg-surface-elevated)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '1.15rem',
+                      marginBottom: '1rem'
+                    }}>
+                      <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem', lineHeight: 1.45 }}>
+                        {q.question}
+                      </h3>
+
+                      {/* Options */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+                        {q.options?.map((option, optIdx) => {
+                          const isSelected = userAnswer === optIdx;
+                          const isThisCorrect = optIdx === q.correctIndex;
+
+                          let btnBg = 'var(--bg-app)';
+                          let btnBorder = 'var(--border-subtle)';
+                          let btnColor = 'var(--text-primary)';
+
+                          if (hasAnswered) {
+                            if (isThisCorrect) {
+                              btnBg = 'rgba(16, 185, 129, 0.2)';
+                              btnBorder = '#10b981';
+                              btnColor = '#10b981';
+                            } else if (isSelected && !isThisCorrect) {
+                              btnBg = 'rgba(239, 68, 68, 0.2)';
+                              btnBorder = '#ef4444';
+                              btnColor = '#ef4444';
+                            }
+                          }
+
+                          return (
+                            <button
+                              key={optIdx}
+                              disabled={hasAnswered}
+                              onClick={() => handleSelectQuizOption(currentQuizQuestionIndex, optIdx, q.correctIndex)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.65rem',
+                                padding: '0.65rem 0.85rem',
+                                borderRadius: 'var(--radius-sm)',
+                                border: `1.5px solid ${btnBorder}`,
+                                background: btnBg,
+                                color: btnColor,
+                                fontSize: '0.84rem',
+                                textAlign: 'left',
+                                cursor: hasAnswered ? 'default' : 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <span style={{
+                                width: '22px',
+                                height: '22px',
+                                borderRadius: '50%',
+                                background: hasAnswered && isThisCorrect 
+                                  ? '#10b981' 
+                                  : hasAnswered && isSelected 
+                                    ? '#ef4444' 
+                                    : 'rgba(255,255,255,0.08)',
+                                color: (hasAnswered && (isThisCorrect || isSelected)) ? '#fff' : 'var(--text-secondary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '0.72rem',
+                                fontWeight: 800,
+                                flexShrink: 0
+                              }}>
+                                {String.fromCharCode(65 + optIdx)}
+                              </span>
+                              <span style={{ flex: 1 }}>{option}</span>
+                              {hasAnswered && isThisCorrect && <CheckCircle2 size={16} style={{ color: '#10b981' }} />}
+                              {hasAnswered && isSelected && !isThisCorrect && <XCircle size={16} style={{ color: '#ef4444' }} />}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Explanation Reveal */}
+                      {hasAnswered && (
+                        <div style={{
+                          marginTop: '1rem',
+                          padding: '0.75rem',
+                          borderRadius: 'var(--radius-sm)',
+                          background: isCorrect ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                          border: `1px solid ${isCorrect ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.3rem', fontSize: '0.8rem', fontWeight: 800, color: isCorrect ? '#10b981' : '#ef4444' }}>
+                            {isCorrect ? <CheckCircle2 size={15} /> : <XCircle size={15} />}
+                            {isCorrect ? 'Correct! Outstanding comprehension.' : 'Incorrect. Review the rationale below:'}
+                          </div>
+                          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+                            {q.explanation}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Question Navigation */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.15rem' }}>
+                        <button
+                          className="btn-ghost"
+                          style={{ fontSize: '0.78rem', padding: '0.4rem 0.75rem' }}
+                          disabled={currentQuizQuestionIndex === 0}
+                          onClick={() => setCurrentQuizQuestionIndex(prev => Math.max(0, prev - 1))}
+                        >
+                          <ChevronLeft size={15} /> Previous Question
+                        </button>
+
+                        <button
+                          className="btn-gradient"
+                          style={{ fontSize: '0.78rem', padding: '0.4rem 0.85rem' }}
+                          disabled={currentQuizQuestionIndex === currentOutput.parsedData.questions.length - 1}
+                          onClick={() => setCurrentQuizQuestionIndex(prev => Math.min(currentOutput.parsedData.questions.length - 1, prev + 1))}
+                        >
+                          Next Question <ChevronRight size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : currentOutput ? (
+              <div style={{ background: 'var(--bg-surface-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
+                <StudioMarkdownViewer text={currentOutput.content} />
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* 8. INFOGRAPHIC                                                 */}
+        {/* ============================================================== */}
+        {activeTab === 'infographic' && (
+          <div>
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(234, 88, 12, 0.08) 100%)',
+              border: '1px solid rgba(245, 158, 11, 0.25)',
+              borderRadius: 'var(--radius-md)',
+              padding: '1rem',
+              marginBottom: '1rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <BarChart3 size={18} style={{ color: '#f59e0b' }} />
+                  <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>Visual Data Infographic</span>
+                </div>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                  Metrics & Pillars
+                </span>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '0.85rem' }}>
+                Distill your sources into an executive visual dashboard with stat counters, core pillars, and summary takeaways.
+              </p>
+
+              <button
+                className="btn-gradient"
+                style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center', padding: '0.55rem' }}
+                onClick={() => handleGenerate('infographic')}
+                disabled={loading || sources.length === 0}
+              >
+                {loading ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <RefreshCw size={14} className="spin-animate" /> Designing Infographic...
+                  </span>
+                ) : (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <Sparkles size={14} /> {currentOutput ? 'Regenerate Infographic' : 'Generate Infographic'}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Infographic Dashboard */}
+            {currentOutput?.parsedData?.stats ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {/* Header banner */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
+                      {currentOutput.parsedData.title || 'Knowledge Infographic'}
+                    </h3>
+                    {currentOutput.parsedData.tagline && (
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>
+                        {currentOutput.parsedData.tagline}
+                      </p>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.35rem' }}>
+                    <button
+                      className="composer-btn-icon"
+                      style={{ width: '28px', height: '28px' }}
+                      title="Copy infographic"
+                      onClick={() => handleCopyContent(currentOutput.content)}
+                    >
+                      {copied ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
+                    </button>
+                    <button
+                      className="composer-btn-icon"
+                      style={{ width: '28px', height: '28px' }}
+                      title="Save to Notes"
+                      onClick={() => handleSaveToNotesCurrent('Infographic Data', currentOutput.content)}
+                    >
+                      <StickyNote size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Big Stat Metric Counters */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.65rem' }}>
+                  {currentOutput.parsedData.stats.map((st, stIdx) => (
+                    <div
+                      key={stIdx}
+                      style={{
+                        background: 'var(--bg-surface-elevated)',
+                        border: '1px solid rgba(245, 158, 11, 0.3)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '0.85rem 0.65rem',
+                        textAlign: 'center',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+                      }}
+                    >
+                      <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#f59e0b', lineHeight: 1.1 }}>
+                        {st.value}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.3rem' }}>
+                        {st.label}
+                      </div>
+                      {st.trend && (
+                        <div style={{ fontSize: '0.65rem', color: '#10b981', marginTop: '0.2rem', fontWeight: 600 }}>
+                          ↑ {st.trend}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Core Pillars */}
+                {currentOutput.parsedData.pillars && currentOutput.parsedData.pillars.length > 0 && (
+                  <div>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      CORE ARCHITECTURAL PILLARS
+                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '0.45rem' }}>
+                      {currentOutput.parsedData.pillars.map((pl, pIdx) => (
+                        <div
+                          key={pIdx}
+                          style={{
+                            background: 'var(--bg-surface-elevated)',
+                            border: '1px solid var(--border-subtle)',
+                            borderLeft: '3px solid #f59e0b',
+                            borderRadius: 'var(--radius-sm)',
+                            padding: '0.85rem'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                            <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                              {pl.title}
+                            </h4>
+                            {pl.badge && (
+                              <span style={{ fontSize: '0.65rem', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 700 }}>
+                                {pl.badge}
+                              </span>
+                            )}
+                          </div>
+                          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                            {pl.description}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Key Takeaways */}
+                {currentOutput.parsedData.takeaways && currentOutput.parsedData.takeaways.length > 0 && (
+                  <div style={{
+                    background: 'var(--bg-app)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '0.85rem'
+                  }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--accent-primary)', textTransform: 'uppercase' }}>
+                      ✦ KEY STRATEGIC TAKEAWAYS
+                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginTop: '0.45rem' }}>
+                      {currentOutput.parsedData.takeaways.map((tk, tIdx) => (
+                        <div key={tIdx} style={{ display: 'flex', gap: '0.5rem', fontSize: '0.8rem', lineHeight: 1.5 }}>
+                          <span style={{ color: '#10b981', fontWeight: 800 }}>✓</span>
+                          <span style={{ color: 'var(--text-primary)' }}>{tk}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : currentOutput ? (
+              <div style={{ background: 'var(--bg-surface-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
+                <StudioMarkdownViewer text={currentOutput.content} />
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* 9. NOTES & SCRATCHPAD                                          */}
+        {/* ============================================================== */}
         {activeTab === 'notes' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>

@@ -1334,8 +1334,9 @@ app.post('/api/studio/generate', optionalAuth, aiLimiter, async (req, res) => {
 
     let systemPrompt = '';
     let userPrompt = '';
+    let expectsJson = false;
 
-    if (type === 'podcast') {
+    if (type === 'podcast' || type === 'audio-overview') {
       systemPrompt = `You are the lead showrunner and audio director for Nexus Intelligence Deep Dive, an acclaimed podcast like Google NotebookLM's Audio Overview.
 You produce a lively, natural, deeply informative 2-host conversation between:
 - **Alex**: The curious, engaging co-host who frames big questions, uses vivid everyday analogies, and keeps the energy dynamic.
@@ -1353,6 +1354,225 @@ FORMAT REQUIREMENTS:
 ${contextFormatted}
 
 ${focus ? `Special focus requested by user: ${focus}` : 'Cover the core themes, breakthroughs, surprising facts, and practical takeaways.'}`;
+    } else if (type === 'slide-deck') {
+      expectsJson = true;
+      systemPrompt = `You are an elite keynote architect and presentation designer for Google NotebookLM Studio.
+Create a polished, cohesive 5 to 7 slide presentation deck based strictly on the provided source materials.
+
+OUTPUT INSTRUCTION:
+Respond STRICTLY with a valid JSON object matching this schema (no surrounding markdown or backticks):
+{
+  "deckTitle": "Comprehensive title of the presentation",
+  "subtitle": "Clear, engaging subtitle",
+  "totalSlides": 6,
+  "slides": [
+    {
+      "slideNumber": 1,
+      "title": "Slide Title",
+      "bullets": [
+        "First key takeaway or insight",
+        "Second supporting point or quantitative evidence",
+        "Third actionable conclusion or takeaway"
+      ],
+      "visualConcept": "Description of an illustrative diagram, flowchart, or visual metaphor for this slide",
+      "speakerNotes": "Natural 2-3 sentence talking points for the presenter to deliver aloud"
+    }
+  ]
+}`;
+
+      userPrompt = `Generate a structured slide deck presentation from these sources:
+
+${contextFormatted}`;
+    } else if (type === 'video-overview') {
+      expectsJson = true;
+      systemPrompt = `You are a creative video director and documentary producer for Google NotebookLM Studio.
+Create a compelling 2-3 minute video overview storyboard and narration script based strictly on the provided sources.
+
+OUTPUT INSTRUCTION:
+Respond STRICTLY with a valid JSON object matching this schema (no surrounding markdown or backticks):
+{
+  "videoTitle": "Engaging Video Title",
+  "estimatedDuration": "2:30",
+  "overview": "Brief summary of the video's thesis",
+  "scenes": [
+    {
+      "sceneNumber": 1,
+      "timestamp": "0:00 - 0:25",
+      "sceneTitle": "Opening Hook & Core Problem",
+      "visualPrompt": "Cinematic visual description: camera movement, graphics, or b-roll animation",
+      "onScreenText": "Headline text or stat displayed on screen",
+      "narration": "Professional voiceover narration script spoken clearly and compellingly"
+    }
+  ]
+}`;
+
+      userPrompt = `Produce a cinematic video overview storyboard based strictly on these sources:
+
+${contextFormatted}`;
+    } else if (type === 'mind-map') {
+      expectsJson = true;
+      systemPrompt = `You are a visual knowledge architect and cognitive mapping expert for Google NotebookLM Studio.
+Construct a clear, hierarchical Mind Map and Mermaid diagram based strictly on the provided sources.
+
+OUTPUT INSTRUCTION:
+Respond STRICTLY with a valid JSON object matching this schema (no surrounding markdown or backticks):
+{
+  "centralTopic": "Core Subject Name",
+  "summary": "1-2 sentence core concept synthesis",
+  "branches": [
+    {
+      "title": "Major Branch 1",
+      "summary": "Brief description of this domain",
+      "subTopics": [
+        "Subtopic detail A",
+        "Subtopic detail B",
+        "Subtopic detail C"
+      ]
+    }
+  ],
+  "mermaid": "graph TD\\n  Root[\\"Core Subject\\"] --> B1[\\"Major Branch 1\\"]\\n  Root --> B2[\\"Major Branch 2\\"]\\n  B1 --> S1[\\"Subtopic detail A\\"]\\n  B1 --> S2[\\"Subtopic detail B\\"]"
+}`;
+
+      userPrompt = `Create a structured hierarchical knowledge mind map and Mermaid diagram from these sources:
+
+${contextFormatted}`;
+    } else if (type === 'reports') {
+      systemPrompt = `You are a senior intelligence analyst and executive research director for Google NotebookLM Studio.
+Produce an exhaustive, publication-grade Research Report based strictly on the provided sources.
+
+Structure the report with high visual clarity:
+# 📑 Executive Research Report: [Subject]
+**Prepared for**: Strategic Decision Makers & Researchers
+**Status**: Verified Against Knowledge Sources
+
+## 1. Executive Summary & Core Thesis
+(A high-impact synthesis highlighting key conclusions)
+
+## 2. Background, Context & Scope
+(Contextual framing and the core problems addressed)
+
+## 3. Comprehensive Findings & Empirical Evidence
+(Detailed findings with bullet points, data points, and source citations)
+
+## 4. Critical Analysis & Strategic Implications
+(Risks, blind spots, competitive advantages, or technical considerations)
+
+## 5. Strategic Recommendations & Action Plan
+(Numbered, concrete, prioritized roadmap of next steps)
+
+## 6. Key Takeaways Summary
+(3-4 high-level takeaway bullets)`;
+
+      userPrompt = `Produce an exhaustive Executive Research Report based strictly on these sources:
+
+${contextFormatted}`;
+    } else if (type === 'flashcards') {
+      expectsJson = true;
+      systemPrompt = `You are a master cognitive learning specialist for Google NotebookLM Studio.
+Create a high-yield study deck of 8 to 12 flashcards based strictly on the provided sources.
+
+OUTPUT INSTRUCTION:
+Respond STRICTLY with a valid JSON object matching this schema (no surrounding markdown or backticks):
+{
+  "deckTitle": "Topic Flashcards Deck",
+  "totalCards": 8,
+  "cards": [
+    {
+      "id": 1,
+      "category": "Core Concept / Architecture / Terminology / Analysis",
+      "front": "Clear question, prompt, or challenge",
+      "back": "Concise, authoritative explanation and answer grounded in the sources",
+      "difficulty": "Easy"
+    }
+  ]
+}`;
+
+      userPrompt = `Generate a high-yield flashcard deck from these sources:
+
+${contextFormatted}`;
+    } else if (type === 'quiz') {
+      expectsJson = true;
+      systemPrompt = `You are an expert assessment and evaluation designer for Google NotebookLM Studio.
+Create an engaging, rigorous 5 to 7 question multiple-choice Quiz testing deep comprehension of the provided sources.
+
+OUTPUT INSTRUCTION:
+Respond STRICTLY with a valid JSON object matching this schema (no surrounding markdown or backticks):
+{
+  "quizTitle": "Comprehensive Knowledge Assessment",
+  "totalQuestions": 6,
+  "questions": [
+    {
+      "id": 1,
+      "question": "Clear, specific question testing key understanding?",
+      "options": [
+        "First plausible option",
+        "Second correct option",
+        "Third plausible option",
+        "Fourth plausible option"
+      ],
+      "correctIndex": 1,
+      "explanation": "Detailed rationale explaining why this option is correct based on the provided source excerpts."
+    }
+  ]
+}`;
+
+      userPrompt = `Create an interactive multiple-choice quiz based strictly on these sources:
+
+${contextFormatted}`;
+    } else if (type === 'infographic') {
+      expectsJson = true;
+      systemPrompt = `You are a visual data journalist and information designer for Google NotebookLM Studio.
+Distill the provided sources into an impactful, data-rich Infographic breakdown.
+
+OUTPUT INSTRUCTION:
+Respond STRICTLY with a valid JSON object matching this schema (no surrounding markdown or backticks):
+{
+  "title": "Main Infographic Headline",
+  "tagline": "A succinct, compelling subtitle summarizing the visual thesis",
+  "stats": [
+    {
+      "value": "95%",
+      "label": "Metric Description",
+      "trend": "+12% vs prior"
+    },
+    {
+      "value": "3.5x",
+      "label": "Speed / Efficiency Gain",
+      "trend": "Benchmark top-tier"
+    },
+    {
+      "value": "100%",
+      "label": "Source Grounding",
+      "trend": "Verified"
+    }
+  ],
+  "pillars": [
+    {
+      "title": "Pillar 1 Headline",
+      "badge": "Core Foundational Pillar",
+      "description": "2-3 sentences breaking down this pillar with evidence."
+    },
+    {
+      "title": "Pillar 2 Headline",
+      "badge": "Key Mechanism",
+      "description": "2-3 sentences breaking down this pillar with evidence."
+    },
+    {
+      "title": "Pillar 3 Headline",
+      "badge": "Primary Outcome",
+      "description": "2-3 sentences breaking down this pillar with evidence."
+    }
+  ],
+  "takeaways": [
+    "High-impact takeaway bullet 1",
+    "High-impact takeaway bullet 2",
+    "High-impact takeaway bullet 3"
+  ]
+}`;
+
+      userPrompt = `Extract key stats, pillars, and visual infographic data from these sources:
+
+${contextFormatted}`;
     } else if (type === 'study-guide') {
       systemPrompt = `You are an elite educational researcher producing a master Study Guide in Google NotebookLM style.
 Structure your output cleanly with these sections:
@@ -1413,10 +1633,33 @@ ${contextFormatted}`;
 
     const generatedContent = await callGemini(userPrompt, systemPrompt, 0.3);
 
+    // Safely parse JSON if expected or detected
+    let parsedData = null;
+    if (expectsJson || (generatedContent && (generatedContent.includes('{') || generatedContent.includes('[')))) {
+      try {
+        let cleanText = generatedContent.trim();
+        const codeBlockMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (codeBlockMatch) cleanText = codeBlockMatch[1].trim();
+
+        try {
+          parsedData = JSON.parse(cleanText);
+        } catch (innerErr) {
+          const firstBrace = cleanText.indexOf('{');
+          const lastBrace = cleanText.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace > firstBrace) {
+            parsedData = JSON.parse(cleanText.substring(firstBrace, lastBrace + 1));
+          }
+        }
+      } catch (parseErr) {
+        if (NODE_ENV !== 'production') console.warn('[Studio JSON Parse Fallback]', parseErr.message);
+      }
+    }
+
     res.json({
       success: true,
       type,
       content: generatedContent,
+      parsedData,
       sourceCount: contextChunks.length,
       timestamp: new Date().toLocaleTimeString()
     });
