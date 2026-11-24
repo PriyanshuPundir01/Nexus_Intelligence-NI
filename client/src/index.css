@@ -357,6 +357,17 @@ body {
   background: transparent;
 }
 
+.studio-center-workspace {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  background: transparent;
+}
+
 .chat-messages-scroll {
   flex: 1;
   overflow-y: auto;

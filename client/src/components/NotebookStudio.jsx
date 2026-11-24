@@ -35,7 +35,8 @@ import {
   Eye, 
   Lightbulb, 
   Share2,
-  Copy
+  Copy,
+  MessageSquare
 } from 'lucide-react';
 
 function escapeHtml(unsafe) {
@@ -179,9 +180,17 @@ export default function NotebookStudio({
   guestSessionId = '',
   notes = [],
   onAddNote,
-  onDeleteNote
+  onDeleteNote,
+  activeTab: externalActiveTab,
+  onTabChange,
+  onBackToChat
 }) {
-  const [activeTab, setActiveTab] = useState('audio-overview');
+  const [internalActiveTab, setInternalActiveTab] = useState('audio-overview');
+  const activeTab = externalActiveTab || internalActiveTab;
+  const setActiveTab = (tab) => {
+    setInternalActiveTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
   const [loading, setLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [studioOutputs, setStudioOutputs] = useState({
@@ -598,29 +607,27 @@ export default function NotebookStudio({
   const currentOutput = studioOutputs[activeTab];
 
   return (
-    <aside className="studio-panel" style={{
-      width: isExpanded ? '640px' : '460px',
-      maxWidth: '100vw',
-      background: 'var(--bg-surface)',
-      borderLeft: '1px solid var(--border-subtle)',
+    <div className="studio-center-workspace" style={{
+      flex: 1,
       display: 'flex',
       flexDirection: 'column',
       height: '100%',
+      width: '100%',
+      overflow: 'hidden',
       position: 'relative',
-      zIndex: 30,
-      flexShrink: 0,
-      transition: 'width 0.22s cubic-bezier(0.16, 1, 0.3, 1)'
+      background: 'transparent'
     }}>
       {/* Studio Header */}
       <div style={{
-        padding: '0.9rem 1.15rem',
+        padding: '0.85rem 1.5rem',
         borderBottom: '1px solid var(--border-subtle)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        background: 'var(--bg-surface-elevated)'
+        background: 'var(--bg-surface-elevated)',
+        flexShrink: 0
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div style={{
             width: '32px',
             height: '32px',
@@ -635,10 +642,10 @@ export default function NotebookStudio({
             <Sparkles size={16} />
           </div>
           <div>
-            <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-              Studio
-              <span style={{ fontSize: '0.68rem', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--accent-primary)', padding: '0.1rem 0.4rem', borderRadius: '9999px', fontWeight: 700 }}>
-                NotebookLM AI
+            <div style={{ fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              Notebook Studio
+              <span style={{ fontSize: '0.68rem', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--accent-primary)', padding: '0.12rem 0.45rem', borderRadius: '9999px', fontWeight: 700 }}>
+                8 AI Tools • Center Stage
               </span>
             </div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
@@ -647,36 +654,42 @@ export default function NotebookStudio({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-          <button 
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="composer-btn-icon"
-            style={{ width: '28px', height: '28px' }}
-            title={isExpanded ? 'Collapse width' : 'Expand width'}
-          >
-            {isExpanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {onBackToChat && (
+            <button 
+              onClick={onBackToChat}
+              className="btn-ghost"
+              style={{ fontSize: '0.76rem', padding: '0.35rem 0.75rem', gap: '0.35rem' }}
+              title="Return to Chat Stream"
+            >
+              <MessageSquare size={14} /> Back to Chat
+            </button>
+          )}
           <button 
             onClick={onClose}
             className="composer-btn-icon"
             style={{ width: '28px', height: '28px' }}
-            title="Close Studio Panel"
+            title="Close Studio (Return to Chat)"
           >
             <X size={16} />
           </button>
         </div>
       </div>
 
-      {/* 2-Column Pill Grid Matching NotebookLM Screenshot */}
+      {/* 2-Column / Multi-Column Responsive Pill Grid */}
       <div style={{
-        padding: '0.85rem 1rem',
+        padding: '0.85rem 1.5rem',
         background: 'var(--bg-app)',
-        borderBottom: '1px solid var(--border-subtle)'
+        borderBottom: '1px solid var(--border-subtle)',
+        flexShrink: 0
       }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(2, 1fr)',
-          gap: '0.55rem'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: '0.55rem',
+          maxWidth: '920px',
+          margin: '0 auto',
+          width: '100%'
         }}>
           {STUDIO_TOOLS.map(tool => {
             const Icon = tool.icon;
@@ -735,7 +748,7 @@ export default function NotebookStudio({
         </div>
 
         {/* Secondary Navigation to Notes Board */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', maxWidth: '920px', margin: '0.45rem auto 0 auto' }}>
           <button
             onClick={() => setActiveTab('notes')}
             style={{
@@ -757,8 +770,9 @@ export default function NotebookStudio({
         </div>
       </div>
 
-      {/* Main Studio Body Area */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '1.1rem' }}>
+      {/* Main Studio Body Area in Center */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem 1.5rem' }}>
+        <div style={{ maxWidth: '920px', margin: '0 auto', width: '100%' }}>
 
         {/* Empty Sources Notice */}
         {sources.length === 0 && (
@@ -2559,7 +2573,8 @@ export default function NotebookStudio({
           </div>
         )}
 
+        </div>
       </div>
-    </aside>
+    </div>
   );
 }

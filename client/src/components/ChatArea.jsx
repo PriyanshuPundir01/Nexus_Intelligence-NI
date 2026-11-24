@@ -18,7 +18,13 @@ import {
   RotateCcw,
   StickyNote,
   Headphones,
-  BookOpen
+  BookOpen,
+  Video,
+  Presentation,
+  Network,
+  Layers,
+  BarChart3,
+  HelpCircle
 } from 'lucide-react';
 
 // Lightweight, clean Markdown renderer for structured, easily readable responses with XSS Sanitization
@@ -249,14 +255,71 @@ export default function ChatArea({
           ) : (
             <>
               {onOpenStudio && (
-                <div style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'center' }}>
-                  <button 
-                    onClick={onOpenStudio}
-                    className="btn-gradient"
-                    style={{ padding: '0.65rem 1.25rem', fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 18px rgba(99, 102, 241, 0.4)' }}
-                  >
-                    <Headphones size={16} /> Open Notebook Studio (Audio Overview & Study Guide)
-                  </button>
+                <div style={{ marginBottom: '1.25rem', width: '100%', maxWidth: '780px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', padding: '0 0.25rem' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <Sparkles size={14} style={{ color: 'var(--accent-primary)' }} /> Studio Quick Tools
+                    </span>
+                    <button
+                      onClick={() => onOpenStudio('audio-overview')}
+                      className="btn-ghost"
+                      style={{ fontSize: '0.72rem', padding: '0.15rem 0.5rem' }}
+                    >
+                      Open Full Studio →
+                    </button>
+                  </div>
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                    gap: '0.45rem'
+                  }}>
+                    {[
+                      { id: 'audio-overview', label: 'Audio Overview', icon: Headphones, color: '#3b82f6' },
+                      { id: 'slide-deck', label: 'Slide deck', icon: Presentation, color: '#d946ef' },
+                      { id: 'video-overview', label: 'Video Overview', icon: Video, color: '#10b981' },
+                      { id: 'flashcards', label: 'Flashcards', icon: Layers, color: '#f97316' },
+                      { id: 'quiz', label: 'Quiz', icon: HelpCircle, color: '#06b6d4' },
+                      { id: 'mind-map', label: 'Mind Map', icon: Network, color: '#8b5cf6' },
+                      { id: 'reports', label: 'Reports', icon: FileText, color: '#ec4899', badge: 'New!' },
+                      { id: 'infographic', label: 'Infographic', icon: BarChart3, color: '#f59e0b' }
+                    ].map(t => {
+                      const Icon = t.icon;
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => onOpenStudio(t.id)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.45rem',
+                            padding: '0.45rem 0.65rem',
+                            borderRadius: '9999px',
+                            border: '1px solid var(--border-subtle)',
+                            background: 'var(--bg-surface)',
+                            color: 'var(--text-primary)',
+                            fontSize: '0.76rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <div style={{ color: t.color, display: 'flex', alignItems: 'center' }}>
+                            <Icon size={14} />
+                          </div>
+                          <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {t.label}
+                          </span>
+                          {t.badge && (
+                            <span style={{ fontSize: '0.58rem', fontWeight: 800, padding: '0.05rem 0.35rem', borderRadius: '9999px', background: 'rgba(236, 72, 153, 0.2)', color: '#ec4899' }}>
+                              {t.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 

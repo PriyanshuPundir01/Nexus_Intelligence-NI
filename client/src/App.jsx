@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { MessageSquare, Sparkles, X } from 'lucide-react';
 import Navbar from './components/Navbar';
 import SourcesDrawer from './components/SourcesDrawer';
 import ChatArea from './components/ChatArea';
@@ -19,7 +20,8 @@ export default function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [modalInitialTab, setModalInitialTab] = useState('pdf');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isStudioOpen, setIsStudioOpen] = useState(true);
+  const [isStudioOpen, setIsStudioOpen] = useState(false);
+  const [activeStudioTab, setActiveStudioTab] = useState('audio-overview');
   const [inspectedSource, setInspectedSource] = useState(null);
   const [theme, setTheme] = useState('dark');
 
@@ -269,6 +271,37 @@ export default function App() {
   const handleSendMessage = async (queryText) => {
     if (!queryText || loading) return;
 
+    // Detect Studio Task triggers to open Studio in the center directly above the search bar
+    const lower = queryText.toLowerCase().trim();
+    if (lower.includes('video overview') || lower.includes('video script') || lower.includes('make video') || lower.includes('create video')) {
+      setActiveStudioTab('video-overview');
+      setIsStudioOpen(true);
+    } else if (lower.includes('flashcard') || lower.includes('flash cards')) {
+      setActiveStudioTab('flashcards');
+      setIsStudioOpen(true);
+    } else if (lower.includes('quiz') || lower.includes('practice test') || lower.includes('assessment')) {
+      setActiveStudioTab('quiz');
+      setIsStudioOpen(true);
+    } else if (lower.includes('slide deck') || lower.includes('presentation') || lower.includes('slides')) {
+      setActiveStudioTab('slide-deck');
+      setIsStudioOpen(true);
+    } else if (lower.includes('mind map') || lower.includes('concept map')) {
+      setActiveStudioTab('mind-map');
+      setIsStudioOpen(true);
+    } else if (lower.includes('infographic') || lower.includes('stats dashboard')) {
+      setActiveStudioTab('infographic');
+      setIsStudioOpen(true);
+    } else if (lower.includes('audio overview') || lower.includes('podcast') || lower.includes('deep dive')) {
+      setActiveStudioTab('audio-overview');
+      setIsStudioOpen(true);
+    } else if (lower.includes('report') || lower.includes('briefing doc')) {
+      setActiveStudioTab('reports');
+      setIsStudioOpen(true);
+    } else if (lower === '/studio' || lower === 'studio' || lower === 'open studio') {
+      setIsStudioOpen(true);
+      return;
+    }
+
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg = {
       id: `usr_${Date.now()}`,
@@ -385,39 +418,118 @@ export default function App() {
           onInspectSource={src => setInspectedSource(src)}
         />
 
-        {/* Chat Workspace */}
+        {/* Central Workspace: Chat & Studio above Search Bar */}
         <div className="chat-container">
-          <ChatArea 
-            messages={messages}
-            loading={loading}
-            sources={sources}
-            totalChunks={totalChunks}
-            onSelectPrompt={handleSendMessage}
-            onOpenAddModal={handleOpenAddModal}
-            onOpenStudio={() => setIsStudioOpen(true)}
-            onSaveNote={handleAddNote}
-            user={user}
-          />
+          
+          {/* Central Workspace Switcher Tabs */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0.45rem 1.25rem',
+            borderBottom: '1px solid var(--border-subtle)',
+            background: 'var(--bg-app)',
+            flexShrink: 0
+          }}>
+            <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <button
+                type="button"
+                onClick={() => setIsStudioOpen(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: !isStudioOpen ? '1px solid var(--accent-primary)' : '1px solid transparent',
+                  background: !isStudioOpen ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                  color: !isStudioOpen ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <MessageSquare size={14} />
+                <span>Chat Workspace {messages.length > 0 && `(${messages.length})`}</span>
+              </button>
 
+              <button
+                type="button"
+                onClick={() => setIsStudioOpen(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: isStudioOpen ? '1px solid #10b981' : '1px solid transparent',
+                  background: isStudioOpen ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                  color: isStudioOpen ? '#10b981' : 'var(--text-secondary)',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <Sparkles size={14} />
+                <span>Notebook Studio (8 Tools)</span>
+              </button>
+            </div>
+
+            {isStudioOpen && (
+              <button
+                type="button"
+                onClick={() => setIsStudioOpen(false)}
+                className="btn-ghost"
+                style={{ fontSize: '0.72rem', padding: '0.25rem 0.55rem', gap: '0.3rem' }}
+                title="Return to Chat Stream"
+              >
+                <X size={13} /> Close Studio
+              </button>
+            )}
+          </div>
+
+          {/* Central Stage: Studio or ChatArea directly above the Search Bar */}
+          {isStudioOpen ? (
+            <NotebookStudio 
+              isOpen={isStudioOpen}
+              onClose={() => setIsStudioOpen(false)}
+              sources={sources}
+              selectedSourceIds={selectedSourceIds}
+              token={token}
+              guestSessionId={guestSessionId}
+              notes={notes}
+              onAddNote={handleAddNote}
+              onDeleteNote={handleDeleteNote}
+              activeTab={activeStudioTab}
+              onTabChange={setActiveStudioTab}
+              onBackToChat={() => setIsStudioOpen(false)}
+            />
+          ) : (
+            <ChatArea 
+              messages={messages}
+              loading={loading}
+              sources={sources}
+              totalChunks={totalChunks}
+              onSelectPrompt={handleSendMessage}
+              onOpenAddModal={handleOpenAddModal}
+              onOpenStudio={(tab) => {
+                if (tab && typeof tab === 'string') setActiveStudioTab(tab);
+                setIsStudioOpen(true);
+              }}
+              onSaveNote={handleAddNote}
+              user={user}
+            />
+          )}
+
+          {/* Central Search Bar / Prompt Input at Bottom */}
           <ChatInput 
             onSendMessage={handleSendMessage}
             loading={loading}
             onOpenAddModal={handleOpenAddModal}
           />
         </div>
-
-        {/* NotebookLM Studio Panel */}
-        <NotebookStudio 
-          isOpen={isStudioOpen}
-          onClose={() => setIsStudioOpen(false)}
-          sources={sources}
-          selectedSourceIds={selectedSourceIds}
-          token={token}
-          guestSessionId={guestSessionId}
-          notes={notes}
-          onAddNote={handleAddNote}
-          onDeleteNote={handleDeleteNote}
-        />
 
       </div>
 
