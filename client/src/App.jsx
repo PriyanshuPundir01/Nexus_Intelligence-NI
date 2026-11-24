@@ -17,10 +17,20 @@ export default function App() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [modalInitialTab, setModalInitialTab] = useState('pdf');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isStudioOpen, setIsStudioOpen] = useState(true);
   const [inspectedSource, setInspectedSource] = useState(null);
   const [theme, setTheme] = useState('dark');
+
+  const handleOpenAddModal = (tab = 'pdf') => {
+    if (typeof tab === 'string' && ['pdf', 'image', 'link', 'text', 'code'].includes(tab)) {
+      setModalInitialTab(tab);
+    } else {
+      setModalInitialTab('pdf');
+    }
+    setIsAddModalOpen(true);
+  };
 
   // NotebookLM Notes State (Synced with localStorage)
   const [notes, setNotes] = useState(() => {
@@ -348,7 +358,7 @@ export default function App() {
       <Navbar 
         sources={sources}
         totalChunks={totalChunks}
-        onOpenAddModal={() => setIsAddModalOpen(true)}
+        onOpenAddModal={handleOpenAddModal}
         onClearSources={handleClearSources}
         theme={theme}
         setTheme={setTheme}
@@ -371,7 +381,7 @@ export default function App() {
           onSelectAllSources={handleSelectAllSources}
           onClearSelection={handleClearSelection}
           onDeleteSource={handleDeleteSource}
-          onOpenAddModal={() => setIsAddModalOpen(true)}
+          onOpenAddModal={handleOpenAddModal}
           onInspectSource={src => setInspectedSource(src)}
         />
 
@@ -383,7 +393,7 @@ export default function App() {
             sources={sources}
             totalChunks={totalChunks}
             onSelectPrompt={handleSendMessage}
-            onOpenAddModal={() => setIsAddModalOpen(true)}
+            onOpenAddModal={handleOpenAddModal}
             onOpenStudio={() => setIsStudioOpen(true)}
             onSaveNote={handleAddNote}
             user={user}
@@ -392,7 +402,7 @@ export default function App() {
           <ChatInput 
             onSendMessage={handleSendMessage}
             loading={loading}
-            onOpenAddModal={() => setIsAddModalOpen(true)}
+            onOpenAddModal={handleOpenAddModal}
           />
         </div>
 
@@ -427,6 +437,7 @@ export default function App() {
         onSourceAdded={handleSourceAdded}
         token={token}
         guestSessionId={guestSessionId}
+        initialTab={modalInitialTab}
       />
 
       {/* Authentication & Authorization Modal */}

@@ -87,11 +87,32 @@ export default function ChatInput({
       <div style={{ marginTop: '0.55rem', display: 'flex', alignItems: 'center', gap: '0.85rem', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
         <span>⚡ <strong>Nexus Intelligence Engine</strong></span>
         <span>•</span>
-        <span>📄 PDFs</span>
+        <button 
+          type="button" 
+          onClick={() => onOpenAddModal('pdf')} 
+          className="composer-chip-btn"
+          title="Add PDF document"
+        >
+          📄 PDFs
+        </button>
         <span>•</span>
-        <span>🖼️ Images (Vision OCR)</span>
+        <button 
+          type="button" 
+          onClick={() => onOpenAddModal('image')} 
+          className="composer-chip-btn"
+          title="Add Image or Diagram"
+        >
+          🖼️ Images (Vision OCR)
+        </button>
         <span>•</span>
-        <span>🔗 Web & YouTube Links</span>
+        <button 
+          type="button" 
+          onClick={() => onOpenAddModal('link')} 
+          className="composer-chip-btn"
+          title="Add Web or YouTube Link"
+        >
+          🔗 Web & YouTube Links
+        </button>
       </div>
     </div>
   );

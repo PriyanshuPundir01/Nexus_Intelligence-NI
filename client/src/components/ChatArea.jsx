@@ -165,15 +165,33 @@ export default function ChatArea({
           </div>
 
           <div className="hero-icon-cluster" style={{ marginBottom: '1rem' }}>
-            <div className="hero-icon-pill" title="PDF Document Ingestion">
+            <button 
+              type="button"
+              className="hero-icon-pill" 
+              title="Upload PDF Document"
+              onClick={() => onOpenAddModal('pdf')}
+              style={{ cursor: 'pointer', border: '1px solid var(--border-subtle)' }}
+            >
               <FileText size={22} color="#f87171" />
-            </div>
-            <div className="hero-icon-pill" title="Image & Diagram Vision OCR">
+            </button>
+            <button 
+              type="button"
+              className="hero-icon-pill" 
+              title="Upload Image & Diagram (Vision OCR)"
+              onClick={() => onOpenAddModal('image')}
+              style={{ cursor: 'pointer', border: '1px solid var(--border-subtle)' }}
+            >
               <ImageIcon size={22} color="#34d399" />
-            </div>
-            <div className="hero-icon-pill" title="Web & YouTube Links">
+            </button>
+            <button 
+              type="button"
+              className="hero-icon-pill" 
+              title="Add Web & YouTube Links"
+              onClick={() => onOpenAddModal('link')}
+              style={{ cursor: 'pointer', border: '1px solid var(--border-subtle)' }}
+            >
               <LinkIcon size={22} color="#22d3ee" />
-            </div>
+            </button>
           </div>
 
           <h2>NI: Nexus Intelligence</h2>
@@ -182,22 +200,42 @@ export default function ChatArea({
           </p>
 
           <div className="stats-banner">
-            <div className="stat-pill">
+            <button 
+              type="button"
+              className="stat-pill clickable"
+              onClick={() => onOpenAddModal('pdf')}
+              title="Add or manage PDFs"
+            >
               <FileText size={15} color="#f87171" />
               <span>PDFs: <strong>{sources.filter(s => s.type === 'pdf').length}</strong></span>
-            </div>
-            <div className="stat-pill">
+            </button>
+            <button 
+              type="button"
+              className="stat-pill clickable"
+              onClick={() => onOpenAddModal('image')}
+              title="Add or manage Images"
+            >
               <ImageIcon size={15} color="#34d399" />
               <span>Images: <strong>{sources.filter(s => s.type === 'image').length}</strong></span>
-            </div>
-            <div className="stat-pill">
+            </button>
+            <button 
+              type="button"
+              className="stat-pill clickable"
+              onClick={() => onOpenAddModal('link')}
+              title="Add or manage Links"
+            >
               <LinkIcon size={15} color="#22d3ee" />
               <span>Links: <strong>{sources.filter(s => s.type === 'link').length}</strong></span>
-            </div>
-            <div className="stat-pill">
+            </button>
+            <button 
+              type="button"
+              className="stat-pill clickable"
+              onClick={() => onOpenAddModal('pdf')}
+              title="Manage knowledge base"
+            >
               <Sparkles size={15} color="var(--accent-primary)" />
               <span>Knowledge Chunks: <strong>{totalChunks}</strong></span>
-            </div>
+            </button>
           </div>
 
           {sources.length === 0 ? (

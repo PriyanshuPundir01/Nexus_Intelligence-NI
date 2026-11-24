@@ -15,13 +15,28 @@ import {
   Sparkles
 } from 'lucide-react';
 
-export default function SourceModal({ isOpen, onClose, onSourceAdded, token, guestSessionId }) {
-  const [activeTab, setActiveTab] = useState('pdf'); // 'pdf' | 'image' | 'link' | 'text'
+export default function SourceModal({ 
+  isOpen, 
+  onClose, 
+  onSourceAdded, 
+  token, 
+  guestSessionId,
+  initialTab = 'pdf'
+}) {
+  const [activeTab, setActiveTab] = useState(initialTab || 'pdf'); // 'pdf' | 'image' | 'link' | 'text'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [linkInput, setLinkInput] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+
+  // Sync tab whenever modal opens with a specific initialTab
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+      setError('');
+    }
+  }, [isOpen, initialTab]);
 
   // Raw text / code note state
   const [textTitle, setTextTitle] = useState('');

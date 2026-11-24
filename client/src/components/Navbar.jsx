@@ -65,23 +65,43 @@ export default function Navbar({
       {/* Sources Quick Indicator */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
         <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--bg-surface-elevated)', padding: '0.35rem 0.85rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-subtle)', fontSize: '0.8rem' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: pdfCount > 0 ? '#f87171' : 'var(--text-muted)' }}>
+          <button 
+            type="button"
+            onClick={() => onOpenAddModal('pdf')}
+            style={{ background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem', color: pdfCount > 0 ? '#f87171' : 'var(--text-muted)', cursor: 'pointer', padding: 0, font: 'inherit' }}
+            title="Click to add or manage PDFs"
+          >
             <FileText size={14} /> {pdfCount} PDFs
-          </span>
+          </button>
           <span style={{ color: 'var(--border-subtle)' }}>•</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: imgCount > 0 ? '#34d399' : 'var(--text-muted)' }}>
+          <button 
+            type="button"
+            onClick={() => onOpenAddModal('image')}
+            style={{ background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem', color: imgCount > 0 ? '#34d399' : 'var(--text-muted)', cursor: 'pointer', padding: 0, font: 'inherit' }}
+            title="Click to add or manage Images"
+          >
             <ImageIcon size={14} /> {imgCount} Images
-          </span>
+          </button>
           <span style={{ color: 'var(--border-subtle)' }}>•</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: linkCount > 0 ? '#22d3ee' : 'var(--text-muted)' }}>
+          <button 
+            type="button"
+            onClick={() => onOpenAddModal('link')}
+            style={{ background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem', color: linkCount > 0 ? '#22d3ee' : 'var(--text-muted)', cursor: 'pointer', padding: 0, font: 'inherit' }}
+            title="Click to add or manage Links"
+          >
             <LinkIcon size={14} /> {linkCount} Links
-          </span>
+          </button>
           {noteCount > 0 && (
             <>
               <span style={{ color: 'var(--border-subtle)' }}>•</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#a78bfa' }}>
+              <button 
+                type="button"
+                onClick={() => onOpenAddModal('text')}
+                style={{ background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#a78bfa', cursor: 'pointer', padding: 0, font: 'inherit' }}
+                title="Click to add or manage Notes"
+              >
                 <FileCode size={14} /> {noteCount} Notes
-              </span>
+              </button>
             </>
           )}
           <span style={{ color: 'var(--border-subtle)' }}>•</span>
