@@ -648,6 +648,25 @@ export default function NotebookStudio({
       {/* Main Studio Body Area */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '1.1rem' }}>
 
+        {/* Empty Sources Notice */}
+        {sources.length === 0 && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            borderRadius: 'var(--radius-md)',
+            padding: '0.85rem 1rem',
+            marginBottom: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.65rem'
+          }}>
+            <Info size={16} style={{ color: '#ef4444', flexShrink: 0 }} />
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+              <strong style={{ color: 'var(--text-primary)' }}>No sources loaded:</strong> Please add at least one source (PDF, Image, or Website Link) using the Add Source buttons on the left to generate deep dive artifacts.
+            </span>
+          </div>
+        )}
+
         {/* ============================================================== */}
         {/* 1. AUDIO OVERVIEW (PODCAST)                                    */}
         {/* ============================================================== */}
