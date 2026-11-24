@@ -1385,7 +1385,7 @@ ${contextFormatted}`;
     } else if (type === 'mind-map') {
       expectsJson = true;
       systemPrompt = `You are a visual knowledge architect and cognitive mapping expert for Google NotebookLM Studio.
-Construct a clear, hierarchical Mind Map and Mermaid diagram based strictly on the provided sources.
+Construct a creative, deeply descriptive, and visually inspiring radial Mind Map based strictly on the provided sources.
 
 OUTPUT INSTRUCTION:
 Respond STRICTLY with a valid JSON object matching this schema (no surrounding markdown or backticks):
@@ -1394,19 +1394,33 @@ Respond STRICTLY with a valid JSON object matching this schema (no surrounding m
   "summary": "1-2 sentence core concept synthesis",
   "branches": [
     {
-      "title": "Major Branch 1",
-      "summary": "Brief description of this domain",
+      "title": "Major Theme 1",
+      "summary": "Brief 1-sentence description of this core domain",
+      "icon": "💡",
+      "color": "pink",
+      "side": "left",
       "subTopics": [
-        "Subtopic detail A",
-        "Subtopic detail B",
-        "Subtopic detail C"
+        { "title": "Subtopic A", "detail": "Detailed note or action item" },
+        { "title": "Subtopic B", "detail": "Detailed note or action item" },
+        { "title": "Subtopic C", "detail": "Detailed note or action item" }
+      ]
+    },
+    {
+      "title": "Major Theme 2",
+      "summary": "Brief 1-sentence description of this core domain",
+      "icon": "🎯",
+      "color": "teal",
+      "side": "right",
+      "subTopics": [
+        { "title": "Subtopic D", "detail": "Detailed note or action item" },
+        { "title": "Subtopic E", "detail": "Detailed note or action item" }
       ]
     }
   ],
-  "mermaid": "graph TD\\n  Root[\\"Core Subject\\"] --> B1[\\"Major Branch 1\\"]\\n  Root --> B2[\\"Major Branch 2\\"]\\n  B1 --> S1[\\"Subtopic detail A\\"]\\n  B1 --> S2[\\"Subtopic detail B\\"]"
+  "mermaid": "graph LR\\n  Root[\\"Core Subject\\"] --> B1[\\"Major Theme 1\\"]\\n  Root --> B2[\\"Major Theme 2\\"]\\n  B1 --> S1[\\"Subtopic A\\"]\\n  B1 --> S2[\\"Subtopic B\\"]"
 }`;
 
-      userPrompt = `Create a structured hierarchical knowledge mind map and Mermaid diagram from these sources:
+      userPrompt = `Extract 4 to 6 creative, descriptive radial branches (balanced across left and right sides) with descriptive subtopics from these sources:
 
 ${contextFormatted}`;
     } else if (type === 'reports') {
@@ -1494,30 +1508,40 @@ Respond STRICTLY with a valid JSON object matching this schema (no surrounding m
 ${contextFormatted}`;
     } else if (type === 'infographic') {
       expectsJson = true;
-      systemPrompt = `You are a visual data journalist and information designer for Google NotebookLM Studio.
-Distill the provided sources into an impactful, data-rich Infographic breakdown.
+      systemPrompt = `You are an elite visual data journalist and infographic poster designer for Google NotebookLM Studio.
+Distill the provided sources into an impactful, richly structured, shape-based visual Infographic breakdown (similar to high-end consulting and media reports).
 
 OUTPUT INSTRUCTION:
 Respond STRICTLY with a valid JSON object matching this schema (no surrounding markdown or backticks):
 {
   "title": "Main Infographic Headline",
   "tagline": "A succinct, compelling subtitle summarizing the visual thesis",
+  "heroStat": {
+    "value": "2.91B",
+    "label": "High-Impact Focal Metric",
+    "subtext": "Core quantitative benchmark or scope extracted from the sources"
+  },
+  "gaugeMetrics": [
+    { "label": "Key Factor 1", "percentage": 62, "description": "Short explanation of this proportion" },
+    { "label": "Key Factor 2", "percentage": 88, "description": "Short explanation of this proportion" },
+    { "label": "Key Factor 3", "percentage": 45, "description": "Short explanation of this proportion" },
+    { "label": "Key Factor 4", "percentage": 51, "description": "Short explanation of this proportion" }
+  ],
+  "comparisonBars": [
+    { "label": "Top Category A", "value": "88%", "percentage": 88, "color": "#3b82f6" },
+    { "label": "Core Category B", "value": "64%", "percentage": 64, "color": "#10b981" },
+    { "label": "Secondary C", "value": "42%", "percentage": 42, "color": "#f59e0b" },
+    { "label": "Emerging D", "value": "24%", "percentage": 24, "color": "#ec4899" }
+  ],
+  "trends": [
+    { "metric": "+21.0% CAGR", "label": "Growth Trajectory", "detail": "Quantifiable momentum or forecast identified in sources", "icon": "TrendingUp" },
+    { "metric": "62% Preference", "label": "Primary Pattern", "detail": "Behavioral or operational shift documented in data", "icon": "Eye" },
+    { "metric": "55.5B Value", "label": "Economic Impact", "detail": "Capital, efficiency, or scale created across the ecosystem", "icon": "DollarSign" }
+  ],
   "stats": [
-    {
-      "value": "95%",
-      "label": "Metric Description",
-      "trend": "+12% vs prior"
-    },
-    {
-      "value": "3.5x",
-      "label": "Speed / Efficiency Gain",
-      "trend": "Benchmark top-tier"
-    },
-    {
-      "value": "100%",
-      "label": "Source Grounding",
-      "trend": "Verified"
-    }
+    { "value": "95%", "label": "Metric Description", "trend": "+12% vs prior" },
+    { "value": "3.5x", "label": "Speed / Efficiency Gain", "trend": "Benchmark top-tier" },
+    { "value": "100%", "label": "Source Grounding", "trend": "Verified" }
   ],
   "pillars": [
     {
@@ -1543,7 +1567,7 @@ Respond STRICTLY with a valid JSON object matching this schema (no surrounding m
   ]
 }`;
 
-      userPrompt = `Extract key stats, pillars, and visual infographic data from these sources:
+      userPrompt = `Extract visual data points, hero metric, circular percentages, comparison bars, and trends for an infographic poster from these sources:
 
 ${contextFormatted}`;
     } else if (type === 'study-guide') {

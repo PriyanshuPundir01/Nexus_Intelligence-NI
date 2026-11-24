@@ -1724,5 +1724,194 @@ body {
   right: 12px;
 }
 
+/* ==========================================================================
+   Creative Radial & Doodle Mind Map Styles
+   ========================================================================== */
+.mindmap-canvas-wrapper {
+  width: 100%;
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+/* Style 1: Modern Pastel Mind Map (Matching User Image 1) */
+.mindmap-pastel-theme {
+  background: radial-gradient(circle at center, rgba(139, 92, 246, 0.08) 0%, var(--bg-surface-elevated) 70%);
+  border: 1.5px solid var(--border-subtle);
+  padding: 2.5rem 1.5rem;
+}
+
+/* Style 2: Notebook Doodle Sketch (Matching User Image 2) */
+.mindmap-doodle-theme {
+  background-color: #fbf8ef;
+  background-image: 
+    linear-gradient(#e5e1d3 1px, transparent 1px),
+    linear-gradient(90deg, rgba(239, 68, 68, 0.25) 1px, transparent 1px);
+  background-size: 100% 28px, 100% 100%;
+  background-position: 0 0, 48px 0;
+  border: 2px dashed #d1c7ad;
+  color: #1f2937;
+  padding: 2.5rem 1.5rem;
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme='dark'] .mindmap-doodle-theme {
+  background-color: #151a23;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(244, 63, 94, 0.2) 1px, transparent 1px);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f3f4f6;
+}
+
+/* Mindmap Central Hub */
+.mindmap-hub-node {
+  padding: 1.1rem 2rem;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: #ffffff;
+  box-shadow: 0 10px 28px rgba(139, 92, 246, 0.4), 0 0 0 4px rgba(139, 92, 246, 0.2);
+  text-align: center;
+  position: relative;
+  z-index: 5;
+  transition: transform 0.25s ease;
+}
+
+.mindmap-hub-node:hover {
+  transform: scale(1.04);
+}
+
+/* Branch Cards (Left & Right) */
+.mindmap-branch-card {
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+  position: relative;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+}
+
+.mindmap-branch-card:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Sub-topic Capsule Pills */
+.mindmap-subtopic-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.mindmap-subtopic-pill:hover {
+  transform: scale(1.05);
+}
+
+/* ==========================================================================
+   Data-Rich Visual Infographic Poster Styles (Matching User Images)
+   ========================================================================== */
+.infographic-poster-wrapper {
+  background: var(--bg-surface-elevated);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 2.25rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Graphic Header Ribbon Banner */
+.infographic-ribbon-banner {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #111827;
+  padding: 0.85rem 2rem;
+  border-radius: 8px;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.35);
+}
+
+.infographic-ribbon-banner h2 {
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0;
+  color: #111827;
+}
+
+/* Section Header Bar */
+.infographic-section-title {
+  background: linear-gradient(90deg, #1e1b4b 0%, #312e81 100%);
+  color: #ffffff;
+  padding: 0.55rem 1.25rem;
+  border-radius: 6px;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+[data-theme='light'] .infographic-section-title {
+  background: linear-gradient(90deg, #4338ca 0%, #6366f1 100%);
+}
+
+/* Circular Donut Gauge Item */
+.infographic-gauge-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1.25rem 0.75rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease;
+}
+
+.infographic-gauge-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-glow);
+}
+
+/* Comparison Bar Component */
+.infographic-bar-track {
+  width: 100%;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--border-subtle);
+}
+
+.infographic-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+
 
 

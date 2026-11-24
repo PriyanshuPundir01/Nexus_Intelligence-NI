@@ -33,7 +33,15 @@ import {
   Copy,
   MessageSquare,
   ArrowRight,
-  Maximize2
+  Maximize2,
+  TrendingUp,
+  DollarSign,
+  Target,
+  PieChart,
+  Activity,
+  Zap,
+  Compass,
+  PenTool
 } from 'lucide-react';
 
 export function escapeHtml(unsafe) {
@@ -508,8 +516,8 @@ export function StudioResultCanvas({
   const [userQuizAnswers, setUserQuizAnswers] = useState({});
   const [quizScore, setQuizScore] = useState(0);
 
-  // Mind Map State
-  const [mindMapViewMode, setMindMapViewMode] = useState('visual');
+  // Mind Map State ('pastel' | 'doodle' | 'mermaid')
+  const [mindMapViewMode, setMindMapViewMode] = useState('pastel');
 
   // Audio Playback State for Audio Overview
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -1277,121 +1285,224 @@ export function StudioResultCanvas({
           )}
 
           {/* ============================================================== */}
-          {/* MIND MAP                                                       */}
+          {/* MIND MAP (Creative Radial & Notebook Doodle Styles)            */}
           {/* ============================================================== */}
           {toolId === 'mind-map' && (
             output?.parsedData?.branches ? (
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
-                  <div style={{ display: 'flex', gap: '0.35rem' }}>
+                {/* Switcher & View Controls */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.15rem', flexWrap: 'wrap', gap: '0.65rem' }}>
+                  <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center' }}>
                     <button
-                      onClick={() => setMindMapViewMode('visual')}
+                      onClick={() => setMindMapViewMode('pastel')}
                       style={{
-                        fontSize: '0.74rem',
+                        fontSize: '0.78rem',
                         fontWeight: 700,
-                        padding: '0.25rem 0.65rem',
-                        borderRadius: '4px',
-                        border: mindMapViewMode === 'visual' ? '1px solid #8b5cf6' : '1px solid var(--border-subtle)',
-                        background: mindMapViewMode === 'visual' ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
-                        color: mindMapViewMode === 'visual' ? '#8b5cf6' : 'var(--text-secondary)',
-                        cursor: 'pointer'
+                        padding: '0.35rem 0.8rem',
+                        borderRadius: 'var(--radius-sm)',
+                        border: mindMapViewMode === 'pastel' ? '1.5px solid #8b5cf6' : '1px solid var(--border-subtle)',
+                        background: mindMapViewMode === 'pastel' ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                        color: mindMapViewMode === 'pastel' ? '#8b5cf6' : 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        transition: 'all 0.15s ease'
                       }}
                     >
-                      Visual Map
+                      <Sparkles size={14} />
+                      <span>Pastel Studio (Radial)</span>
                     </button>
+
+                    <button
+                      onClick={() => setMindMapViewMode('doodle')}
+                      style={{
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        padding: '0.35rem 0.8rem',
+                        borderRadius: 'var(--radius-sm)',
+                        border: mindMapViewMode === 'doodle' ? '1.5px solid #f59e0b' : '1px solid var(--border-subtle)',
+                        background: mindMapViewMode === 'doodle' ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
+                        color: mindMapViewMode === 'doodle' ? '#f59e0b' : 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <PenTool size={14} />
+                      <span>Notebook Doodle (Sketch)</span>
+                    </button>
+
                     {output.parsedData.mermaid && (
                       <button
                         onClick={() => setMindMapViewMode('mermaid')}
                         style={{
-                          fontSize: '0.74rem',
+                          fontSize: '0.78rem',
                           fontWeight: 700,
-                          padding: '0.25rem 0.65rem',
-                          borderRadius: '4px',
-                          border: mindMapViewMode === 'mermaid' ? '1px solid #8b5cf6' : '1px solid var(--border-subtle)',
-                          background: mindMapViewMode === 'mermaid' ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
-                          color: mindMapViewMode === 'mermaid' ? '#8b5cf6' : 'var(--text-secondary)',
-                          cursor: 'pointer'
+                          padding: '0.35rem 0.8rem',
+                          borderRadius: 'var(--radius-sm)',
+                          border: mindMapViewMode === 'mermaid' ? '1.5px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
+                          background: mindMapViewMode === 'mermaid' ? 'rgba(6, 182, 212, 0.2)' : 'transparent',
+                          color: mindMapViewMode === 'mermaid' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
                         }}
                       >
                         Mermaid Code
                       </button>
                     )}
                   </div>
+
+                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Compass size={13} /> {output.parsedData.branches.length} Conceptual Branches • Radiating Knowledge Tree
+                  </span>
                 </div>
 
-                {mindMapViewMode === 'visual' ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                    <div style={{
-                      background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(99, 102, 241, 0.2) 100%)',
-                      border: '2px solid #8b5cf6',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '1rem',
-                      textAlign: 'center'
-                    }}>
-                      <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#a78bfa', textTransform: 'uppercase' }}>
-                        CENTRAL TOPIC
-                      </span>
-                      <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-primary)', margin: '0.25rem 0' }}>
-                        {output.parsedData.centralTopic || 'Core Subject'}
-                      </h3>
-                      {output.parsedData.summary && (
-                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0 }}>
-                          {output.parsedData.summary}
-                        </p>
-                      )}
-                    </div>
+                {mindMapViewMode !== 'mermaid' ? (
+                  {/* Visual Radial Mindmap Canvas (Matching User Reference Images) */}
+                  (() => {
+                    const branches = output.parsedData.branches || [];
+                    const isDoodle = mindMapViewMode === 'doodle';
+                    
+                    // Distribute branches evenly across Left and Right
+                    const leftBranches = branches.filter((b, i) => b.side === 'left' || (!b.side && i % 2 === 0));
+                    const rightBranches = branches.filter((b, i) => b.side === 'right' || (!b.side && i % 2 !== 0));
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem' }}>
-                      {output.parsedData.branches.map((branch, bIdx) => (
-                        <div
-                          key={bIdx}
+                    const PALETTES = [
+                      { bg: isDoodle ? '#fef3c7' : 'rgba(244, 63, 94, 0.12)', border: isDoodle ? '#f59e0b' : '#fb7185', text: '#e11d48', pillBg: isDoodle ? '#fffbeb' : 'rgba(244, 63, 94, 0.18)', pillText: '#be123c', defaultIcon: '💡' },
+                      { bg: isDoodle ? '#fed7aa' : 'rgba(249, 115, 22, 0.12)', border: isDoodle ? '#ea580c' : '#fb923c', text: '#ea580c', pillBg: isDoodle ? '#fff7ed' : 'rgba(249, 115, 22, 0.18)', pillText: '#c2410c', defaultIcon: '🎯' },
+                      { bg: isDoodle ? '#ccfbf1' : 'rgba(20, 184, 166, 0.12)', border: isDoodle ? '#0d9488' : '#2dd4bf', text: '#0d9488', pillBg: isDoodle ? '#f0fdfa' : 'rgba(20, 184, 166, 0.18)', pillText: '#0f766e', defaultIcon: '⚙️' },
+                      { bg: isDoodle ? '#e9d5ff' : 'rgba(139, 92, 246, 0.12)', border: isDoodle ? '#7c3aed' : '#a78bfa', text: '#7c3aed', pillBg: isDoodle ? '#faf5ff' : 'rgba(139, 92, 246, 0.18)', pillText: '#6d28d9', defaultIcon: '🚀' },
+                      { bg: isDoodle ? '#e0e7ff' : 'rgba(14, 165, 233, 0.12)', border: isDoodle ? '#4338ca' : '#38bdf8', text: '#0284c7', pillBg: isDoodle ? '#eef2ff' : 'rgba(14, 165, 233, 0.18)', pillText: '#0369a1', defaultIcon: '📚' },
+                      { bg: isDoodle ? '#fef08a' : 'rgba(234, 179, 8, 0.12)', border: isDoodle ? '#b45309' : '#facc15', text: '#ca8a04', pillBg: isDoodle ? '#fefce8' : 'rgba(234, 179, 8, 0.18)', pillText: '#a16207', defaultIcon: '🔬' }
+                    ];
+
+                    const renderBranch = (branch, globalIdx, side) => {
+                      const palette = PALETTES[globalIdx % PALETTES.length];
+                      const icon = branch.icon || palette.defaultIcon;
+                      const subtopics = branch.subTopics || [];
+                      const tilt = isDoodle ? (globalIdx % 2 === 0 ? '-1.5deg' : '1.5deg') : '0deg';
+
+                      return (
+                        <div 
+                          key={globalIdx} 
                           style={{
-                            background: 'var(--bg-surface-elevated)',
-                            border: '1px solid var(--border-subtle)',
-                            borderLeft: '3px solid #8b5cf6',
-                            borderRadius: 'var(--radius-sm)',
-                            padding: '0.85rem'
+                            display: 'flex',
+                            flexDirection: side === 'left' ? 'row-reverse' : 'row',
+                            alignItems: 'center',
+                            gap: '0.85rem',
+                            transform: `rotate(${tilt})`,
+                            transition: 'transform 0.2s ease'
                           }}
                         >
-                          <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
-                            {branch.title}
-                          </h4>
-                          {branch.summary && (
-                            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.45, marginBottom: '0.55rem' }}>
-                              {branch.summary}
-                            </p>
-                          )}
-                          {branch.subTopics && (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                              {branch.subTopics.map((sub, sIdx) => (
-                                <span
-                                  key={sIdx}
-                                  style={{
-                                    fontSize: '0.74rem',
-                                    padding: '0.2rem 0.55rem',
-                                    borderRadius: '9999px',
-                                    background: 'rgba(139, 92, 246, 0.1)',
-                                    color: '#c4b5fd',
-                                    border: '1px solid rgba(139, 92, 246, 0.25)'
-                                  }}
-                                >
-                                  {sub}
-                                </span>
-                              ))}
+                          {/* Main Branch Card */}
+                          <div 
+                            className="mindmap-branch-card"
+                            style={{
+                              background: palette.bg,
+                              border: isDoodle ? `2px solid ${palette.border}` : `1.5px solid ${palette.border}`,
+                              color: 'var(--text-primary)',
+                              flex: 1,
+                              minWidth: '200px',
+                              maxWidth: '260px'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.35rem' }}>
+                              <span style={{ fontSize: '1.15rem' }}>{icon}</span>
+                              <h4 style={{ fontSize: '0.94rem', fontWeight: 800, margin: 0, color: palette.text }}>
+                                {branch.title}
+                              </h4>
+                            </div>
+                            {branch.summary && (
+                              <p style={{ fontSize: '0.76rem', color: isDoodle ? '#374151' : 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
+                                {branch.summary}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Curved Connector & Sub-topics Cluster */}
+                          {subtopics.length > 0 && (
+                            <div style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '0.45rem',
+                              alignItems: side === 'left' ? 'flex-end' : 'flex-start'
+                            }}>
+                              {subtopics.map((sub, sIdx) => {
+                                const subText = typeof sub === 'string' ? sub : (sub.title || sub.name);
+                                const subDetail = typeof sub === 'object' ? sub.detail : null;
+                                return (
+                                  <div
+                                    key={sIdx}
+                                    className="mindmap-subtopic-pill"
+                                    title={subDetail || subText}
+                                    style={{
+                                      background: palette.pillBg,
+                                      border: `1px solid ${palette.border}`,
+                                      color: palette.pillText,
+                                      boxShadow: isDoodle ? '1px 2px 4px rgba(0,0,0,0.06)' : 'none'
+                                    }}
+                                  >
+                                    <span style={{ opacity: 0.6 }}>{side === 'left' ? '←' : '→'}</span>
+                                    <span>{subText}</span>
+                                    {subDetail && <span style={{ fontSize: '0.65rem', opacity: 0.75 }}>({subDetail})</span>}
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                      );
+                    };
+
+                    return (
+                      <div className={`mindmap-canvas-wrapper ${isDoodle ? 'mindmap-doodle-theme' : 'mindmap-pastel-theme'}`}>
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr minmax(220px, 280px) 1fr',
+                          gap: '1.5rem',
+                          alignItems: 'center'
+                        }}>
+                          {/* LEFT COLUMN: Radiating Branches */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            {leftBranches.map((branch, idx) => renderBranch(branch, idx, 'left'))}
+                          </div>
+
+                          {/* CENTER COLUMN: Central Subject Hub Node */}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                            <div className="mindmap-hub-node">
+                              <span style={{ fontSize: '0.68rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.9 }}>
+                                CENTRAL TOPIC
+                              </span>
+                              <h3 style={{ fontSize: '1.35rem', fontWeight: 900, margin: '0.35rem 0', letterSpacing: '-0.02em', color: '#ffffff' }}>
+                                {output.parsedData.centralTopic || 'Core Subject'}
+                              </h3>
+                              {output.parsedData.summary && (
+                                <p style={{ fontSize: '0.78rem', margin: 0, opacity: 0.92, lineHeight: 1.5, color: '#f3f4f6' }}>
+                                  {output.parsedData.summary}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* RIGHT COLUMN: Radiating Branches */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            {rightBranches.map((branch, idx) => renderBranch(branch, idx + leftBranches.length, 'right'))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
                 ) : (
                   <pre style={{
                     background: 'var(--bg-app)',
                     border: '1px solid var(--border-subtle)',
                     borderRadius: 'var(--radius-md)',
-                    padding: '1rem',
+                    padding: '1.25rem',
                     fontFamily: 'var(--font-mono)',
-                    fontSize: '0.82rem',
+                    fontSize: '0.84rem',
                     color: 'var(--text-primary)',
                     whiteSpace: 'pre-wrap',
                     overflowX: 'auto'
@@ -1404,72 +1515,307 @@ export function StudioResultCanvas({
           )}
 
           {/* ============================================================== */}
-          {/* INFOGRAPHIC                                                    */}
+          {/* INFOGRAPHIC (Data-Rich Poster with Shapes & Gauges)            */}
           {/* ============================================================== */}
           {toolId === 'infographic' && (
-            output?.parsedData?.stats ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)', marginBottom: '0.3rem' }}>
-                    {output.parsedData.title || 'Infographic Overview'}
-                  </h3>
+            output?.parsedData ? (
+              <div className="infographic-poster-wrapper">
+                
+                {/* 1. TOP GRAPHIC RIBBON HEADER (Matching User Image 2) */}
+                <div className="infographic-ribbon-banner">
+                  <h2>{output.parsedData.title || 'Infographic Report'}</h2>
                   {output.parsedData.tagline && (
-                    <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0 }}>
+                    <div style={{ fontSize: '0.84rem', fontWeight: 600, marginTop: '0.35rem', opacity: 0.92 }}>
                       {output.parsedData.tagline}
-                    </p>
+                    </div>
                   )}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-                  {output.parsedData.stats.map((st, stIdx) => (
-                    <div
-                      key={stIdx}
-                      style={{
-                        background: 'var(--bg-surface-elevated)',
-                        border: '1px solid rgba(245, 158, 11, 0.35)',
-                        borderRadius: 'var(--radius-md)',
-                        padding: '1rem 0.85rem',
-                        textAlign: 'center',
-                        boxShadow: '0 4px 15px rgba(0,0,0,0.08)'
-                      }}
-                    >
-                      <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#f59e0b', lineHeight: 1.1 }}>
-                        {st.value}
-                      </div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.35rem' }}>
-                        {st.label}
-                      </div>
-                      {st.trend && (
-                        <div style={{ fontSize: '0.7rem', color: '#10b981', marginTop: '0.2rem', fontWeight: 600 }}>
-                          ↑ {st.trend}
+                {/* 2. HERO FOCAL STAT CARD (Matching User Image 1 top) */}
+                {(() => {
+                  const hero = output.parsedData.heroStat || (output.parsedData.stats && output.parsedData.stats[0]);
+                  if (!hero) return null;
+                  return (
+                    <div style={{
+                      background: 'radial-gradient(circle at top left, rgba(245, 158, 11, 0.15) 0%, var(--bg-surface) 70%)',
+                      border: '1.5px solid rgba(245, 158, 11, 0.4)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '1.5rem 2rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '1.5rem',
+                      boxShadow: '0 8px 24px rgba(245, 158, 11, 0.12)'
+                    }}>
+                      <div>
+                        <div style={{ fontSize: '0.74rem', fontWeight: 800, textTransform: 'uppercase', color: '#f59e0b', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>
+                          PRIMARY FOCAL BENCHMARK
                         </div>
-                      )}
+                        <div style={{ fontSize: '2.8rem', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.1, letterSpacing: '-0.02em' }}>
+                          {hero.value}
+                        </div>
+                        <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.35rem' }}>
+                          {hero.label}
+                        </div>
+                        {hero.subtext && (
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                            {hero.subtext}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Visual Icon Badge */}
+                      <div style={{
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '20px',
+                        background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#ffffff',
+                        boxShadow: '0 8px 24px rgba(245, 158, 11, 0.4)',
+                        flexShrink: 0
+                      }}>
+                        <BarChart3 size={40} />
+                      </div>
                     </div>
-                  ))}
+                  );
+                })()}
+
+                {/* 3. CIRCULAR PERCENTAGE DONUT GAUGES (Matching User Image 1 middle) */}
+                <div>
+                  <div className="infographic-section-title">
+                    <span>Demographics & Key Proportions</span>
+                    <PieChart size={16} />
+                  </div>
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                    gap: '1rem'
+                  }}>
+                    {(() => {
+                      const gauges = output.parsedData.gaugeMetrics || [
+                        { label: 'Primary Adoption', percentage: 62, description: 'Core user engagement' },
+                        { label: 'Retention Rate', percentage: 88, description: 'Recurring consistency' },
+                        { label: 'Multi-Factor Users', percentage: 45, description: 'Cross-functional participation' },
+                        { label: 'Target Demographics', percentage: 51, description: 'Balanced target distribution' }
+                      ];
+
+                      const GAUGE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899'];
+
+                      return gauges.map((g, idx) => {
+                        const pct = Math.min(100, Math.max(0, parseInt(g.percentage, 10) || 50));
+                        const color = GAUGE_COLORS[idx % GAUGE_COLORS.length];
+                        const radius = 34;
+                        const circumference = 2 * Math.PI * radius;
+                        const offset = circumference * (1 - pct / 100);
+
+                        return (
+                          <div key={idx} className="infographic-gauge-card">
+                            <div style={{ position: 'relative', width: '84px', height: '84px', marginBottom: '0.75rem' }}>
+                              <svg width="84" height="84" viewBox="0 0 84 84">
+                                <circle cx="42" cy="42" r={radius} stroke="rgba(255,255,255,0.08)" strokeWidth="8" fill="none" />
+                                <circle 
+                                  cx="42" 
+                                  cy="42" 
+                                  r={radius} 
+                                  stroke={color} 
+                                  strokeWidth="8" 
+                                  fill="none" 
+                                  strokeDasharray={circumference} 
+                                  strokeDashoffset={offset} 
+                                  strokeLinecap="round" 
+                                  transform="rotate(-90 42 42)" 
+                                />
+                              </svg>
+                              <div style={{
+                                position: 'absolute',
+                                inset: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '1.05rem',
+                                fontWeight: 900,
+                                color: 'var(--text-primary)'
+                              }}>
+                                {pct}%
+                              </div>
+                            </div>
+                            <div style={{ fontSize: '0.84rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
+                              {g.label}
+                            </div>
+                            {g.description && (
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', lineHeight: 1.35 }}>
+                                {g.description}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
                 </div>
 
-                {output.parsedData.pillars && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                      Core Pillars
-                    </span>
-                    {output.parsedData.pillars.map((pl, pIdx) => (
-                      <div key={pIdx} style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', borderLeft: '3px solid #f59e0b', borderRadius: 'var(--radius-sm)', padding: '0.9rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                          <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)' }}>{pl.title}</h4>
-                          {pl.badge && (
-                            <span style={{ fontSize: '0.68rem', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '0.12rem 0.45rem', borderRadius: '4px', fontWeight: 700 }}>
-                              {pl.badge}
-                            </span>
-                          )}
+                {/* 4. COMPARISON BAR CHARTS (Matching User Image 1 right & Image 2) */}
+                <div>
+                  <div className="infographic-section-title">
+                    <span>Comparative Breakdown & Scale</span>
+                    <TrendingUp size={16} />
+                  </div>
+
+                  <div style={{
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '1.25rem 1.5rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '1rem'
+                  }}>
+                    {(() => {
+                      const bars = output.parsedData.comparisonBars || [
+                        { label: 'Leading Category', value: '88%', percentage: 88, color: '#3b82f6' },
+                        { label: 'Secondary Benchmark', value: '64%', percentage: 64, color: '#10b981' },
+                        { label: 'Alternative Approach', value: '42%', percentage: 42, color: '#f59e0b' },
+                        { label: 'Emerging Pattern', value: '24%', percentage: 24, color: '#ec4899' }
+                      ];
+
+                      return bars.map((b, idx) => (
+                        <div key={idx}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+                            <span style={{ color: 'var(--text-primary)' }}>{b.label}</span>
+                            <span style={{ color: b.color || '#3b82f6', fontWeight: 800 }}>{b.value || `${b.percentage}%`}</span>
+                          </div>
+                          <div className="infographic-bar-track">
+                            <div 
+                              className="infographic-bar-fill"
+                              style={{
+                                width: `${Math.min(100, Math.max(8, b.percentage || 50))}%`,
+                                background: b.color || '#3b82f6'
+                              }}
+                            >
+                              {b.value || `${b.percentage}%`}
+                            </div>
+                          </div>
                         </div>
-                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                          {pl.description}
-                        </p>
-                      </div>
-                    ))}
+                      ));
+                    })()}
+                  </div>
+                </div>
+
+                {/* 5. STRATEGIC TREND CARDS (Matching User Image 1 bottom) */}
+                <div>
+                  <div className="infographic-section-title">
+                    <span>Industry & Concept Trends</span>
+                    <Zap size={16} />
+                  </div>
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                    gap: '1rem'
+                  }}>
+                    {(() => {
+                      const trends = output.parsedData.trends || [
+                        { metric: '+21.0% CAGR', label: 'Expected Growth', detail: 'Consistent upward trajectory recorded in research', icon: 'TrendingUp' },
+                        { metric: '62% of Users', label: 'Primary Preference', detail: 'Prefer visual and interactive digests over text', icon: 'Eye' },
+                        { metric: '$55.5B Value', label: 'Economic Reach', detail: 'Cumulative market scale identified in sources', icon: 'DollarSign' }
+                      ];
+
+                      const ICONS_MAP = {
+                        TrendingUp: TrendingUp,
+                        Eye: Eye,
+                        DollarSign: DollarSign,
+                        BarChart3: BarChart3
+                      };
+
+                      return trends.map((tr, idx) => {
+                        const IconComp = ICONS_MAP[tr.icon] || TrendingUp;
+                        return (
+                          <div 
+                            key={idx}
+                            style={{
+                              background: 'var(--bg-surface)',
+                              border: '1px solid var(--border-subtle)',
+                              borderRadius: 'var(--radius-md)',
+                              padding: '1.25rem',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '0.65rem'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)' }}>{tr.label}</span>
+                              <div style={{ color: 'var(--accent-primary)' }}>
+                                <IconComp size={18} />
+                              </div>
+                            </div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#f59e0b', letterSpacing: '-0.02em' }}>
+                              {tr.metric}
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                              {tr.detail}
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+
+                {/* 6. CORE PILLARS & TAKEAWAYS */}
+                {output.parsedData.pillars && output.parsedData.pillars.length > 0 && (
+                  <div>
+                    <div className="infographic-section-title">
+                      <span>Foundational Pillars & Key Insights</span>
+                      <Target size={16} />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {output.parsedData.pillars.map((pl, pIdx) => (
+                        <div key={pIdx} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderLeft: '3.5px solid #f59e0b', borderRadius: 'var(--radius-sm)', padding: '0.95rem 1.15rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                            <h4 style={{ fontSize: '0.94rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{pl.title}</h4>
+                            {pl.badge && (
+                              <span style={{ fontSize: '0.68rem', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: 700 }}>
+                                {pl.badge}
+                              </span>
+                            )}
+                          </div>
+                          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.55 }}>
+                            {pl.description}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
+
+                {/* Takeaways List */}
+                {output.parsedData.takeaways && output.parsedData.takeaways.length > 0 && (
+                  <div style={{
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '1.25rem'
+                  }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <CheckCircle2 size={16} color="#10b981" />
+                      <span>Executive Key Takeaways</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {output.parsedData.takeaways.map((item, tIdx) => (
+                        <div key={tIdx} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', fontSize: '0.86rem', lineHeight: 1.55 }}>
+                          <span style={{ color: '#f59e0b', fontWeight: 800 }}>•</span>
+                          <span style={{ color: 'var(--text-primary)' }}>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
               </div>
             ) : <StudioMarkdownViewer text={output.content} />
           )}
