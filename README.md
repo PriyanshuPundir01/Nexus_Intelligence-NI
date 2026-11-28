@@ -16,6 +16,7 @@
 [![Security](https://img.shields.io/badge/Security-Helmet_%7C_JWT_%7C_BCrypt_%7C_SSRF-00ff66?style=for-the-badge&logo=shield&logoColor=0a0c10)](#06-security--hardening-matrix)
 [![Live Demo](https://img.shields.io/badge/Live-Nexus_Intelligence-ffb703?style=for-the-badge&logo=vercel&logoColor=0a0c10)](https://nexusintelligence-ni.vercel.app/)
 [![Portfolio](https://img.shields.io/badge/Portfolio-Priyanshu_Pundir-a78bfa?style=for-the-badge&logo=googlechrome&logoColor=0a0c10)](https://priyanshu-pundir.vercel.app/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-38bdf8?style=for-the-badge&logo=open-source-initiative&logoColor=0a0c10)](LICENSE)
 
 <br/>
 
@@ -27,7 +28,8 @@
   <b>✦ <a href="#05-system-architecture">Architecture</a> ✦</b> &nbsp;•&nbsp;
   <b>✦ <a href="#06-security--hardening-matrix">Security Matrix</a> ✦</b> &nbsp;•&nbsp;
   <b>✦ <a href="#07-quick-start">Quick Start</a> ✦</b> &nbsp;•&nbsp;
-  <b>✦ <a href="#08-rest-api-endpoints">API Endpoints</a> ✦</b>
+  <b>✦ <a href="#08-rest-api-endpoints">API Endpoints</a> ✦</b> &nbsp;•&nbsp;
+  <b>✦ <a href="#09-license">License</a> ✦</b>
 </p>
 
 ---
@@ -245,6 +247,10 @@ npm run dev
 </details>
 
 ---
+
+<h2 id="09-license" style="font-family: 'Bookman Old Style', 'URW Bookman', 'Georgia', serif; color: #00ff99;">📜 09. License</h2>
+
+Distributed under the **[MIT License](LICENSE)**.
 
 <div align="center">
 
