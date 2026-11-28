@@ -1,15 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { 
-  X, 
-  FileText, 
-  Image as ImageIcon, 
-  Link as LinkIcon, 
-  UploadCloud, 
-  RefreshCw, 
-  CheckCircle2, 
+import {
+  X,
+  FileText,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  UploadCloud,
+  RefreshCw,
   AlertCircle,
-  FileCode,
   Video,
   Globe,
   Sparkles
@@ -114,7 +112,7 @@ export default function SourceModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to upload PDF');
 
-      try { confetti({ particleCount: 50, spread: 50 }); } catch (_) {}
+      try { confetti({ particleCount: 50, spread: 50 }); } catch { /* ignore confetti errors */ }
       onSourceAdded(data.source);
       onClose();
     } catch (err) {
@@ -146,7 +144,7 @@ export default function SourceModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to analyze image');
 
-      try { confetti({ particleCount: 50, spread: 50 }); } catch (_) {}
+      try { confetti({ particleCount: 50, spread: 50 }); } catch { /* ignore confetti errors */ }
       onSourceAdded(data.source);
       onClose();
     } catch (err) {
@@ -182,7 +180,7 @@ export default function SourceModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to ingest link');
 
-      try { confetti({ particleCount: 50, spread: 50 }); } catch (_) {}
+      try { confetti({ particleCount: 50, spread: 50 }); } catch { /* ignore confetti errors */ }
       onSourceAdded(data.source);
       onClose();
     } catch (err) {

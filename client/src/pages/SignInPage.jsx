@@ -76,7 +76,7 @@ export default function SignInPage({
           spread: 70,
           origin: { y: 0.6 }
         });
-      } catch (_) {}
+      } catch { /* ignore confetti errors */ }
 
       setTimeout(() => {
         onAuthSuccess(data.user, data.token);

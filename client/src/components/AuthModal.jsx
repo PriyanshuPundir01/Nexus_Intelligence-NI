@@ -10,7 +10,6 @@ import {
   UserPlus,
   AlertCircle,
   RefreshCw,
-  Sparkles,
   Zap
 } from 'lucide-react';
 
@@ -77,7 +76,7 @@ export default function AuthModal({
           spread: 60,
           origin: { y: 0.6 }
         });
-      } catch (_) { }
+      } catch { /* ignore confetti errors */ }
 
       onAuthSuccess(data.user, data.token);
       onClose();

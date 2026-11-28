@@ -1,14 +1,6 @@
 import React, { useState } from 'react';
 import CuteDoodle from './CuteDoodle';
-import { 
-  ArrowUp, 
-  Paperclip, 
-  FileText, 
-  Image as ImageIcon, 
-  Link as LinkIcon, 
-  Sparkles,
-  Plus
-} from 'lucide-react';
+import { ArrowUp, Plus } from 'lucide-react';
 
 export default function ChatInput({ 
   onSendMessage, 

@@ -10,13 +10,11 @@ console.log('\x1b[36m%s\x1b[0m', '⚡ Launching NexusRAG: Multimodal AI Knowledg
 const isWindows = process.platform === 'win32';
 const npmCmd = isWindows ? 'npm.cmd' : 'npm';
 
-// Spawn Backend Server (port 5000) securely without vulnerable shell execution
 const server = spawn(process.execPath, [path.join(__dirname, 'server', 'server.js')], {
   cwd: __dirname,
   stdio: 'inherit'
 });
 
-// Spawn Frontend Vite Client (port 5173)3333
 const client = spawn(npmCmd, ['run', 'dev'], {
   cwd: path.join(__dirname, 'client'),
   stdio: 'inherit',

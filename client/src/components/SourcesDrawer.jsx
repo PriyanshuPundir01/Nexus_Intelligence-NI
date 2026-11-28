@@ -1,19 +1,16 @@
 import React, { useState } from 'react';
-import { 
-  FileText, 
-  Image as ImageIcon, 
-  Link as LinkIcon, 
+import {
+  FileText,
+  Image as ImageIcon,
+  Link as LinkIcon,
   FileCode,
-  Trash2, 
+  Trash2,
   CheckSquare,
   Square,
   Eye,
-  Layers, 
-  Sparkles, 
-  ExternalLink,
+  Layers,
   BookOpen,
   Plus,
-  Check,
   ChevronLeft
 } from 'lucide-react';
 

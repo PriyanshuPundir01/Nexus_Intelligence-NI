@@ -1,16 +1,12 @@
 import React, { useState } from 'react';
-import { 
-  Zap, 
-  Layers, 
-  Plus, 
-  Sun, 
-  Moon, 
-  Trash2, 
-  FileText, 
-  Image as ImageIcon, 
+import {
+  Plus,
+  Sun,
+  Moon,
+  Trash2,
+  FileText,
+  Image as ImageIcon,
   Link as LinkIcon,
-  FileCode,
-  User as UserIcon,
   LogIn,
   LogOut,
   UserPlus,

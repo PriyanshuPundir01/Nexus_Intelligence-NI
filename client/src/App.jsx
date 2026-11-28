@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Sparkles, X, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
+import { MessageSquare, Sparkles, ChevronRight, Layers } from 'lucide-react';
 import Navbar from './components/Navbar';
 import SourcesDrawer from './components/SourcesDrawer';
 import ChatArea from './components/ChatArea';
@@ -188,11 +188,13 @@ export default function App() {
     return localStorage.getItem('ni_token') || '';
   });
 
-  // Persistent anonymous session identifier for guest users
   const [guestSessionId] = useState(() => {
     let gid = localStorage.getItem('ni_guest_session');
     if (!gid) {
-      gid = 'g_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+      const randomPart = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID().replace(/-/g, '')
+        : Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+      gid = 'g_' + randomPart;
       localStorage.setItem('ni_guest_session', gid);
     }
     return gid;
@@ -208,12 +210,10 @@ export default function App() {
     return headers;
   };
 
-  // Sync theme
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Validate existing token on boot
   useEffect(() => {
     if (token) {
       fetch('/api/auth/me', {
@@ -221,7 +221,6 @@ export default function App() {
       })
       .then(res => {
         if (!res.ok) {
-          // Token expired or invalid
           handleLogout();
         }
       })
@@ -229,7 +228,6 @@ export default function App() {
     }
   }, []);
 
-  // Fetch sources list from server (scoped to authenticated user or guest session)
   const loadSources = async (activeToken = token) => {
     try {
       const headers = getAuthHeaders(activeToken);
@@ -246,9 +244,7 @@ export default function App() {
           return existingValid.length > 0 ? existingValid : incomingSources.map(s => s.id);
         });
       }
-    } catch (err) {
-      console.error('Error fetching sources:', err);
-    }
+    } catch { /* ignore fetch errors */ }
   };
 
   useEffect(() => {
@@ -329,9 +325,7 @@ export default function App() {
         setSelectedSourceIds(prev => prev.filter(id => id !== sourceId));
         loadSources(token);
       }
-    } catch (err) {
-      console.error('Error deleting source:', err);
-    }
+    } catch { /* ignore delete error */ }
   };
 
   const handleClearSources = async () => {
@@ -351,9 +345,7 @@ export default function App() {
         setTotalChunks(0);
         setMessages([]);
       }
-    } catch (err) {
-      console.error('Error clearing sources:', err);
-    }
+    } catch { /* ignore clear error */ }
   };
 
   const handleGenerateStudio = async (toolId) => {
@@ -390,7 +382,6 @@ export default function App() {
         }
       }));
     } catch (err) {
-      console.error('Studio generation error:', err);
       alert(`Studio generation error: ${err.message}`);
     } finally {
       setStudioLoading(false);
@@ -728,9 +719,7 @@ export default function App() {
           activeTool={activeStudioTool}
           onSelectTool={(toolId) => {
             setActiveStudioTool(toolId);
-            if (studioOutputs[toolId]) {
-              setActiveCenterView('studio');
-            }
+            setActiveCenterView('studio');
           }}
           onGenerate={handleGenerateStudio}
           loading={studioLoading}

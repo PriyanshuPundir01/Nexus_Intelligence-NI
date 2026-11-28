@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  X, 
-  FileText, 
-  Image as ImageIcon, 
-  Link as LinkIcon, 
-  FileCode, 
-  Copy, 
-  Check, 
-  Layers, 
-  Sparkles,
-  ExternalLink 
+import {
+  X,
+  FileText,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  FileCode,
+  Copy,
+  Check,
+  ExternalLink
 } from 'lucide-react';
+
+function isSafeHttpUrl(url) {
+  return typeof url === 'string' && /^https?:\/\//i.test(url.trim());
+}
 
 export default function SourceInspectorModal({ 
   isOpen, 
@@ -25,7 +27,6 @@ export default function SourceInspectorModal({
 
   useEffect(() => {
     if (!isOpen || !source) {
-      setChunks([]);
       return;
     }
 
@@ -41,8 +42,8 @@ export default function SourceInspectorModal({
           const data = await res.json();
           setChunks(data.chunks || []);
         }
-      } catch (err) {
-        console.error('Failed to load chunks:', err);
+      } catch {
+        setChunks([]);
       } finally {
         setLoading(false);
       }
@@ -91,7 +92,7 @@ export default function SourceInspectorModal({
         </div>
 
         {/* URL / Origin link if available */}
-        {source.url && (
+        {isSafeHttpUrl(source.url) && (
           <div style={{ padding: '0.5rem 1.5rem', background: 'var(--bg-app)', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ color: 'var(--text-muted)' }}>Origin URL:</span>
             <a href={source.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

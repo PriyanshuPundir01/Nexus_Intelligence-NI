@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import CuteDoodle from './CuteDoodle';
 
+const SEARCH_STEPS = [
+  'Scanning multimodal vector embeddings...',
+  'Searching across uploaded PDFs, Images & Links...',
+  'Matching top semantic passages & verified citations...',
+  'Nexus Intelligence synthesizing high-impact response...'
+];
+
 export default function GeminiSearchingLoader() {
   const [stepIndex, setStepIndex] = useState(0);
 
-  const steps = [
-    'Scanning multimodal vector embeddings...',
-    'Searching across uploaded PDFs, Images & Links...',
-    'Matching top semantic passages & verified citations...',
-    'Nexus Intelligence synthesizing high-impact response...'
-  ];
-
   useEffect(() => {
     const timer = setInterval(() => {
-      setStepIndex((prev) => (prev + 1) % steps.length);
+      setStepIndex((prev) => (prev + 1) % SEARCH_STEPS.length);
     }, 1800);
     return () => clearInterval(timer);
   }, []);
@@ -45,7 +45,7 @@ export default function GeminiSearchingLoader() {
 
         <div className="gemini-status-text">
           <span className="gemini-step-fade" key={stepIndex}>
-            {steps[stepIndex]}
+            {SEARCH_STEPS[stepIndex]}
           </span>
         </div>
       </div>

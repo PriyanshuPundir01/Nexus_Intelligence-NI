@@ -12,9 +12,6 @@ import {
   CheckCircle2,
   Zap,
   RefreshCw,
-  FileText,
-  Image as ImageIcon,
-  Link as LinkIcon,
   ShieldCheck,
   Sparkles,
   Sun,
@@ -128,7 +125,7 @@ export default function SignUpPage({
           spread: 80,
           origin: { y: 0.6 }
         });
-      } catch (_) {}
+      } catch { /* ignore confetti errors */ }
 
       setTimeout(() => {
         onAuthSuccess(data.user, data.token);
