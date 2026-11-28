@@ -27,8 +27,7 @@
   <b>✦ <a href="#05-system-architecture">Architecture</a> ✦</b> &nbsp;•&nbsp;
   <b>✦ <a href="#06-security--hardening-matrix">Security Matrix</a> ✦</b> &nbsp;•&nbsp;
   <b>✦ <a href="#07-quick-start">Quick Start</a> ✦</b> &nbsp;•&nbsp;
-  <b>✦ <a href="#08-rest-api-endpoints">API Endpoints</a> ✦</b> &nbsp;•&nbsp;
-  <b>✦ <a href="#09-more-projects--portfolio">More Projects</a> ✦</b>
+  <b>✦ <a href="#08-rest-api-endpoints">API Endpoints</a> ✦</b>
 </p>
 
 ---
@@ -246,36 +245,6 @@ npm run dev
 </details>
 
 ---
-
-<h2 id="09-more-projects--portfolio" style="font-family: 'Bookman Old Style', 'URW Bookman', 'Georgia', serif; color: #00ff99;">🗂️ 09. More Projects &amp; GitHub Repositories</h2>
-
-<p style="font-family: 'Bookman Old Style', 'URW Bookman', serif; font-size: 1.02rem;">
-Explore all live demos, interactive 3D architecture specs, and source repositories on my portfolio:
-<b><a href="https://priyanshu-pundir.vercel.app/">priyanshu-pundir.vercel.app</a></b>
-</p>
-
-| # | Repository | Domain | Highlights |
-| :---: | :--- | :--- | :--- |
-| **01** | **[N.A.N.U](https://github.com/PriyanshuPundir01/N.A.N.U)** | Multi-Model AI &amp; Voice | Dynamic Gemini Flash / Qwen 2.5 router, Web Speech dictation &amp; multimodal ingest |
-| **02** | **[Nexus_Intelligence-NI](https://github.com/PriyanshuPundir01/Nexus_Intelligence-NI)** | Enterprise Multimodal RAG | PDF, Vision OCR, Web/YouTube ingestion, Top-4 citations &amp; 7-tool Notebook Studio |
-| **03** | **[DroneTV-AI](https://github.com/PriyanshuPundir01/DroneTV-AI)** | Aerial Ecosystem &amp; CRM | React + Express + MongoDB conversational lead assistant &amp; admin dashboard |
-| **04** | **[CryptScale](https://github.com/PriyanshuPundir01/CryptScale)** | Cybersecurity &amp; CSPRNG | Real-time entropy analysis, RTX 4090 attack sim &amp; zero-knowledge breach telemetry |
-| **05** | **[MONEYMATRIX](https://github.com/PriyanshuPundir01/MONEYMATRIX)** | Core Banking in C | In-memory Binary Search Tree indexing, 2-phase atomic P2P &amp; salted DJB2 ledger |
-| **06** | **[Automotive_Hub](https://github.com/PriyanshuPundir01/Automotive_Hub)** | Full-Stack Discovery UI | Faceted search portal, acceleration telemetry &amp; dynamic `jsPDF` order receipts |
-| **07** | **[Sangeet](https://github.com/PriyanshuPundir01/Sangeet)** | Media Streaming &amp; DSP | 35+ regional folk tracks powered by custom Web Audio API &amp; FFT visualizer |
-| **08** | **[CyberSentinal](https://github.com/PriyanshuPundir01/CyberSentinal)** | SOC Threat Analyzer | Live packet inspection (`Scapy`), Snort anomaly rules &amp; telemetry analytics |
-| **09** | **[ShadowTrace](https://github.com/PriyanshuPundir01/ShadowTrace)** | Endpoint Telemetry HUD | Asynchronous `pynput` hardware daemon streaming into a Flask terminal HUD |
-
----
-
-<h2 id="10-author--connect" style="font-family: 'Bookman Old Style', 'URW Bookman', 'Georgia', serif; color: #00ff99;">📞 10. Author &amp; Connect</h2>
-
-- **Developer:** Priyanshu Pundir — Full Stack Developer &amp; Systems Engineer
-- **Portfolio:** [priyanshu-pundir.vercel.app](https://priyanshu-pundir.vercel.app/)
-- **Live App:** [nexusintelligence-ni.vercel.app](https://nexusintelligence-ni.vercel.app/)
-- **GitHub:** [github.com/PriyanshuPundir01](https://github.com/PriyanshuPundir01)
-- **LinkedIn:** [linkedin.com/in/priyanshupundir01](https://www.linkedin.com/in/priyanshupundir01/)
-- **Email:** [priyanshupundir36@gmail.com](mailto:priyanshupundir36@gmail.com)
 
 <div align="center">
 
