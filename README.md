@@ -42,8 +42,8 @@
 
 ```text
   ┌───────────────────────────┐      ┌───────────────────────────┐      ┌───────────────────────────┐
-  │  📄 PDF, Vision & Links   │ ──❯  │ 🧠 User-Scoped Vector DB  │ ──❯  │ ⚡ RAG Chat & 7-Tool Studio│
-  │  Magic-Bytes + SSRF Guard │      │  1,000-char Chunk + Index │      │  Groq → Gemini → OpenRouter│
+  │  📄 PDF, Vision & Links   │ ──❯  │ 🧠 User-Scoped Vector DB │ ──❯  │⚡ RAG Chat & 7-Tool Studio│
+  │  Magic-Bytes + SSRF Guard │      │  1,000-char Chunk + Index │      │ Groq → Gemini → OpenRouter│
   └───────────────────────────┘      └───────────────────────────┘      └───────────────────────────┘
 ```
 
